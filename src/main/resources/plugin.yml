@@ -1,0 +1,50 @@
+name: RexChat
+version: '${project.version}'
+main: cc.rexsystems.rexChat.RexChat
+api-version: 1.13
+folia-supported: true
+authors: [RexSystems]
+description: A chat management plugin
+website: https://rexsys.top
+softdepend: [PlaceholderAPI]
+
+commands:
+  rexchat:
+    description: Main plugin command
+    aliases: [rc]
+  clearchat:
+    description: Clear the chat
+    aliases: [cc]
+  mutechat:
+    description: Toggle chat mute
+    aliases: [mc]
+  chatcolor:
+    description: Set your chat color
+    aliases: [color]
+
+permissions:
+  rexchat.admin:
+    description: Access to all plugin features
+    default: op
+  rexchat.clear:
+    description: Ability to clear chat
+    default: op
+  rexchat.mute:
+    description: Ability to mute/unmute chat
+    default: op
+  rexchat.bypass:
+    description: Bypass muted chat
+    default: op
+  rexchat.chatcolor:
+    description: Ability to use colors and formatting in chat messages
+    default: op
+
+  rexchat.preview:
+    description: Use chat previews (clickable [item]/[inventory])
+    default: true
+  rexchat.preview.inv:
+    description: Open inventory preview via /rexchat inv
+    default: true
+  rexchat.preview.item:
+    description: Open item preview via /rexchat item
+    default: true
