@@ -1,0 +1,48 @@
+# Clean URLs - remove .html extension
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([^\.]+)$ $1.html [NC,L]
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Hotlink protection - prevent others from embedding your content
+RewriteCond %{HTTP_REFERER} !^$
+RewriteCond %{HTTP_REFERER} !^https?://(www\.)?rexsystems\.github\.io [NC]
+RewriteCond %{HTTP_REFERER} !^https?://(www\.)?github\.com [NC]
+RewriteRule \.(jpg|jpeg|png|gif|svg|css|js)$ - [F,L]
+
+# Security headers
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # XSS Protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Prevent MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Content Security Policy
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+</IfModule>
+
+# Disable directory browsing
+Options -Indexes
+
+# Block bad bots and scrapers
+RewriteCond %{HTTP_USER_AGENT} ^.*(bot|crawl|spider|scrape|wget|curl).*$ [NC]
+RewriteCond %{HTTP_USER_AGENT} !Googlebot [NC]
+RewriteCond %{HTTP_USER_AGENT} !bingbot [NC]
+RewriteRule .* - [F,L]
+
+# Prevent access to sensitive files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

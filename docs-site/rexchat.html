@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RexChat Documentation - RexSystems</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="nav-brand"><span>Rex</span>Systems</a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/rexchat">Docs</a>
+                <a href="https://github.com/rexsystems" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container docs-container">
+        <aside class="docs-sidebar">
+            <h3>RexChat Docs</h3>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#commands">Commands</a></li>
+                <li><a href="#permissions">Permissions</a></li>
+                <li><a href="#chat-formatting">Chat Formatting</a></li>
+                <li><a href="#chat-colors">Chat Colors</a></li>
+                <li><a href="#mentions">Mentions</a></li>
+                <li><a href="#previews">Item & Inventory Previews</a></li>
+                <li><a href="#emojis">Emojis</a></li>
+                <li><a href="#custom-commands">Custom Commands</a></li>
+                <li><a href="#placeholders">Placeholders</a></li>
+                <li><a href="#configuration">Configuration</a></li>
+            </ul>
+        </aside>
+
+        <main class="docs-content">
+            <h1 id="overview">RexChat Documentation</h1>
+            <p>RexChat is a lightweight yet powerful chat management plugin for Minecraft servers. While it may work on older versions, we officially support Minecraft 1.20.4 through 1.21.11.</p>
+
+            <div class="note">
+                <strong>Requirements:</strong> Java 21 (Required), Minecraft 1.20.4 - 1.21.11 (Supported), Paper or Spigot server
+            </div>
+            
+            <div class="warning">
+                <strong>Note:</strong> The plugin may work on versions below 1.20.4, but we only provide support for 1.20.4 and above.
+            </div>
+
+            <h2 id="installation">Installation</h2>
+            <ol>
+                <li>Download the latest <code>RexChat.jar</code> from <a href="https://github.com/rexsystems/RexChat/releases" target="_blank">GitHub Releases</a></li>
+                <li>Place the jar file in your server's <code>plugins</code> folder</li>
+                <li>Restart your server</li>
+                <li>Configure the plugin in <code>plugins/RexChat/config.yml</code></li>
+                <li>Use <code>/rc reload</code> to apply changes without restarting</li>
+            </ol>
+
+            <div class="note">
+                <strong>Optional:</strong> Install <a href="https://www.spigotmc.org/resources/placeholderapi.6245/" target="_blank">PlaceholderAPI</a> for extended placeholder support
+            </div>
+
+            <h2 id="commands">Commands</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Aliases</th>
+                        <th>Description</th>
+                        <th>Permission</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/rexchat</code></td>
+                        <td><code>/rc</code></td>
+                        <td>Main plugin command and reload</td>
+                        <td><code>rexchat.admin</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>/mutechat</code></td>
+                        <td><code>/mc</code></td>
+                        <td>Toggle chat mute on/off</td>
+                        <td><code>rexchat.mute</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>/clearchat</code></td>
+                        <td><code>/cc</code></td>
+                        <td>Clear chat messages</td>
+                        <td><code>rexchat.clear</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>/chatcolor</code></td>
+                        <td><code>/color</code></td>
+                        <td>Set your chat message color</td>
+                        <td><code>rexchat.chatcolor</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Command Usage Examples</h3>
+            <pre><code># Reload the plugin configuration
+/rc reload
+
+# Mute the chat (only staff can talk)
+/mutechat
+
+# Clear all chat messages
+/clearchat
+
+# View available chat colors
+/chatcolor
+
+# Set your chat color to red
+/chatcolor set red
+
+# Remove your chat color
+/chatcolor off</code></pre>
+
+            <h2 id="permissions">Permissions</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        <th>Description</th>
+                        <th>Default</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>rexchat.admin</code></td>
+                        <td>Access to all plugin features</td>
+                        <td>OP</td>
+                    </tr>
+                    <tr>
+                        <td><code>rexchat.mute</code></td>
+                        <td>Ability to mute/unmute chat</td>
+                        <td>OP</td>
+                    </tr>
+                    <tr>
+                        <td><code>rexchat.clear</code></td>
+                        <td>Ability to clear chat</td>
+                        <td>OP</td>
+                    </tr>
+                    <tr>
+                        <td><code>rexchat.bypass</code></td>
+                        <td>Bypass muted chat (can talk when muted)</td>
+                        <td>OP</td>
+                    </tr>
+                    <tr>
+                        <td><code>rexchat.chatcolor</code></td>
+                        <td>Use colors and formatting in chat</td>
+                        <td>OP</td>
+                    </tr>
+                    <tr>
+                        <td><code>rexchat.preview</code></td>
+                        <td>Use chat previews ([item]/[inv])</td>
+                        <td>Everyone</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2 id="chat-formatting">Chat Formatting</h2>
+            <p>RexChat allows you to fully customize how chat messages appear. You can configure different formats for different player groups.</p>
+
+            <h3>Basic Format Configuration</h3>
+            <pre><code>chat-format:
+  enabled: true
+  format: "{prefix}&7{player}: &f{message}"
+  player:
+    hover:
+      enabled: true
+      lines:
+        - "&7Health: &c{health}&7/&c{max_health}"
+        - "&7World: &f{world}"
+        - "&7Location: &f{x}&7, &f{y}&7, &f{z}"
+        - "&7Ping: &f{ping}ms"</code></pre>
+
+            <h3>Group-Specific Formatting</h3>
+            <p>You can override the chat format for specific groups (requires LuckPerms or Vault):</p>
+            <pre><code>chat-format:
+  groups:
+    admin:
+      format: "{prefix}&c{player}: &f{message}"
+      hover:
+        enabled: true
+        lines:
+          - "&cAdmin &7• &fPing: {ping}ms"
+    moderator:
+      format: "{prefix}&b{player}: &f{message}"</code></pre>
+
+            <h2 id="chat-colors">Chat Colors</h2>
+            <p>Players can select from predefined chat colors using the <code>/chatcolor</code> command. Colors support both legacy codes and modern gradients/rainbow effects.</p>
+
+            <h3>Configuring Chat Colors</h3>
+            <pre><code>chatcolor:
+  enabled: true
+  colors:
+    red:
+      format: "&c"
+      permission: "rexchat.chatcolor.red"
+      display-name: "Red"
+    rainbow:
+      format: '<rainbow>'
+      permission: "rexchat.chatcolor.rainbow"
+      display-name: "&cR&6a&ei&an&bb&do&5w"
+    sunset:
+      format: '<gradient:#FF6B6B:#FFE66D>'
+      permission: "rexchat.chatcolor.sunset"
+      display-name: "Sunset"</code></pre>
+
+            <h3>Using Chat Colors</h3>
+            <ol>
+                <li>Player types <code>/chatcolor</code> to see available colors</li>
+                <li>Player types <code>/chatcolor set red</code> to select a color</li>
+                <li>All their messages will now appear in that color</li>
+                <li>Use <code>/chatcolor off</code> to remove the color</li>
+            </ol>
+
+            <div class="note">
+                <strong>Note:</strong> Players need the specific permission for each color (e.g., <code>rexchat.chatcolor.red</code>)
+            </div>
+
+            <h2 id="mentions">Player Mentions</h2>
+            <p>Players can mention others in chat by typing their name. Mentioned players receive notifications with sound and title effects.</p>
+
+            <h3>How Mentions Work</h3>
+            <ul>
+                <li>Type a player's name in chat: <code>Hey Steve, check this out!</code></li>
+                <li>The mentioned player's name will be highlighted</li>
+                <li>They'll hear a sound notification</li>
+                <li>They'll see a title message on screen</li>
+                <li>Both sender and target can receive chat notifications</li>
+            </ul>
+
+            <h3>Mention Configuration</h3>
+            <pre><code>mention:
+  enabled: true
+  color: "&6"
+  by-name: true
+  sound:
+    enabled: true
+    name: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    volume: 0.8
+    pitch: 1.2
+  title:
+    enabled: true
+    title: "&6Mention!"
+    subtitle: "&eYou were mentioned by &6{sender}"
+    fade-in: 5
+    stay: 40
+    fade-out: 10</code></pre>
+
+            <h2 id="previews">Item & Inventory Previews</h2>
+            <p>Players can show their items or inventory in chat using special tokens. Other players can click to view them.</p>
+
+            <h3>Item Preview</h3>
+            <p>Hold an item and type one of these in chat:</p>
+            <ul>
+                <li><code>[item]</code> or <code>[i]</code></li>
+                <li><code>{item}</code> or <code>{i}</code></li>
+            </ul>
+            <p>Example: <code>Check out my [item]!</code></p>
+
+            <h3>Inventory Preview</h3>
+            <p>Type one of these in chat to show your inventory:</p>
+            <ul>
+                <li><code>[inventory]</code> or <code>[inv]</code></li>
+                <li><code>{inventory}</code> or <code>{inv}</code></li>
+            </ul>
+            <p>Example: <code>Look at my gear [inv]</code></p>
+
+            <h3>Preview Configuration</h3>
+            <pre><code>chat-previews:
+  enabled: true
+  tokens:
+    item: ["[item]", "[i]", "{item}", "{i}"]
+    inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]</code></pre>
+
+            <div class="note">
+                <strong>Permissions:</strong> <code>rexchat.preview</code> (enabled by default for all players)
+            </div>
+
+            <h2 id="emojis">Chat Emojis</h2>
+            <p>Players can use emoji shortcuts in chat that automatically convert to Unicode emojis.</p>
+
+            <h3>Default Emojis</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Emoji</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>:)</code> or <code>:smile:</code></td>
+                        <td>☺</td>
+                    </tr>
+                    <tr>
+                        <td><code>&lt;3</code> or <code>:heart:</code></td>
+                        <td>❤</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Adding Custom Emojis</h3>
+            <pre><code>chat-emoji:
+  enabled: true
+  emojis:
+    - name: "star"
+      aliases: [":star:", "*"]
+      replacement: "⭐"
+    - name: "fire"
+      aliases: [":fire:"]
+      replacement: "🔥"</code></pre>
+
+            <h2 id="custom-commands">Custom Commands</h2>
+            <p>Create custom commands that send messages to players. Perfect for rules, Discord links, store info, etc.</p>
+
+            <h3>Single Message Command</h3>
+            <pre><code>commands:
+  store:
+    enabled: true
+    command: "store"
+    aliases: ["shop"]
+    permission: ""
+    message: "%rc_prefix%&6Store &7• &fVisit: &6https://store.example.com"</code></pre>
+
+            <h3>Multi-Line Command</h3>
+            <pre><code>commands:
+  rules:
+    enabled: true
+    command: "rules"
+    aliases: ["rule"]
+    permission: ""
+    message-list:
+      - "%rc_prefix%&6Server Rules"
+      - "&7• &fBe respectful to all players"
+      - "&7• &fNo spamming or excessive caps"
+      - "&7• &fNo griefing or stealing"</code></pre>
+
+            <div class="note">
+                <strong>Tip:</strong> Leave <code>permission: ""</code> empty to allow everyone to use the command
+            </div>
+
+            <h2 id="placeholders">Placeholders</h2>
+            <p>RexChat supports various placeholders in chat format, hover text, and messages.</p>
+
+            <h3>Built-in Placeholders</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Placeholder</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>{player}</code></td>
+                        <td>Player's username</td>
+                    </tr>
+                    <tr>
+                        <td><code>{display_name}</code></td>
+                        <td>Player's display name</td>
+                    </tr>
+                    <tr>
+                        <td><code>{message}</code></td>
+                        <td>The chat message</td>
+                    </tr>
+                    <tr>
+                        <td><code>{prefix}</code></td>
+                        <td>Player's prefix (from LuckPerms/Vault)</td>
+                    </tr>
+                    <tr>
+                        <td><code>{world}</code></td>
+                        <td>Player's current world</td>
+                    </tr>
+                    <tr>
+                        <td><code>{health}</code></td>
+                        <td>Player's current health</td>
+                    </tr>
+                    <tr>
+                        <td><code>{max_health}</code></td>
+                        <td>Player's maximum health</td>
+                    </tr>
+                    <tr>
+                        <td><code>{x}</code>, <code>{y}</code>, <code>{z}</code></td>
+                        <td>Player's coordinates</td>
+                    </tr>
+                    <tr>
+                        <td><code>{ping}</code></td>
+                        <td>Player's ping in milliseconds</td>
+                    </tr>
+                    <tr>
+                        <td><code>%rc_prefix%</code></td>
+                        <td>Plugin prefix from config</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>PlaceholderAPI Support</h3>
+            <p>If PlaceholderAPI is installed, you can use any PAPI placeholder in your chat format:</p>
+            <pre><code>format: "{prefix}&7{player} %vault_rank%: &f{message}"</code></pre>
+
+            <h2 id="configuration">Full Configuration Example</h2>
+            <p>Here's the complete default configuration file with all available options:</p>
+            <pre><code># RexChat Configuration
+
+# Update checker
+update-checker:
+  enabled: true
+  notify-ops-on-join: false
+  permission: "rexchat.admin"
+  message: "%rc_prefix%&fA new version of &cRexChat &fis available: &c{latest}&7 (current: &f{current}&7). &fDownload: &chttps://www.spigotmc.org/resources/rexchat.122562/"
+
+# Message Settings
+messages:
+  prefix: "&7[&6RexChat&7] "
+  no-permission: "%rc_prefix%&fYou don't have permission to use this command."
+  reload-success: "%rc_prefix%&fReloaded successfully!"
+  command-not-found: "%rc_prefix%&fCommand not found."
+  reload-usage: "%rc_prefix%&fUsage: /%cmd% reload"
+  player-only: "%rc_prefix%&fThis command can only be used by players!"
+  mention:
+    sender: "%rc_prefix%&aYou mentioned &6{targets}"
+    target: "%rc_prefix%&eYou were mentioned by &6{sender}"
+    prevent-self: true
+  preview:
+    target-not-found: "%rc_prefix%&cPlayer not found."
+    item:
+      title: "&6Item: &f{player}"
+      none: "%rc_prefix%&7You are not holding any item."
+      hover: "&7Click to view {player}'s item"
+      text: "&f[&f{Item} &bx{Amount}&f]"
+      singular-text: "&f[&f{Item}&f]"
+      empty-label: "&7[&eHold an item to show it&7]"
+      token-empty-error: "%rc_prefix%&cYou need to hold an item to show it."
+      open: "%rc_prefix%&7Opening item preview for &6{player}"
+    inventory:
+      title: "&6Inventory: &f{player}"
+      hover: "&7Click to view {player}'s inventory"
+      label-template: "&7[&fInventory&7]"
+      open: "%rc_prefix%&7Opening inventory preview for &6{player}"
+
+# Mentions
+mention:
+  enabled: true
+  color: "&6"
+  by-name: true
+  sound:
+    enabled: true
+    name: "ENTITY_EXPERIENCE_ORB_PICKUP"
+    volume: 0.8
+    pitch: 1.2
+  notify:
+    sender: false
+    target: true
+  title:
+    enabled: true
+    title: "&6Mention!"
+    subtitle: "&eYou were mentioned by &6{sender}"
+    fade-in: 5
+    stay: 40
+    fade-out: 10
+
+# Join/Leave Messages (leave blank to disable)
+join-leave:
+  join-message: ""
+  leave-message: ""
+
+# Chat reporting (1.19+)
+chat-reporting:
+  disable: true
+
+# Chat Color Presets
+chatcolor:
+  enabled: true
+  colors:
+    red:
+      format: "&c"
+      permission: "rexchat.chatcolor.red"
+      display-name: "Red"
+    gold:
+      format: "&6"
+      permission: "rexchat.chatcolor.gold"
+      display-name: "Gold"
+    green:
+      format: "&a"
+      permission: "rexchat.chatcolor.green"
+      display-name: "Green"
+    aqua:
+      format: "&b"
+      permission: "rexchat.chatcolor.aqua"
+      display-name: "Aqua"
+    pink:
+      format: "&d"
+      permission: "rexchat.chatcolor.pink"
+      display-name: "Pink"
+    rainbow:
+      format: '<rainbow>'
+      permission: "rexchat.chatcolor.rainbow"
+      display-name: "&cR&6a&ei&an&bb&do&5w"
+    sunset:
+      format: '<gradient:#FF6B6B:#FFE66D>'
+      permission: "rexchat.chatcolor.sunset"
+      display-name: "Sunset"
+    ocean:
+      format: '<gradient:#00B4DB:#0083B0>'
+      permission: "rexchat.chatcolor.ocean"
+      display-name: "Ocean"
+
+# Chat Formatting
+chat-format:
+  enabled: true
+  format: "{prefix}&7{player} {tag}: &f{message}"
+  player:
+    hover:
+      enabled: true
+      lines:
+        - "&7Health: &c{health}&7/&c{max_health}"
+        - "&7World: &f{world}"
+        - "&7Location: &f{x}&7, &f{y}&7, &f{z}"
+        - "&7Ping: &f{ping}ms"
+  groups:
+    helper:
+      format: "{prefix}&7{player}: &a{message}"
+      hover:
+        enabled: true
+        lines:
+          - "&aHelper &7• &fPing: {ping}ms"
+    moderator:
+      format: "{prefix}&7{player}: &b{message}"
+      hover:
+        enabled: true
+        lines:
+          - "&bModerator &7• &fPing: {ping}ms"
+    admin:
+      format: "{prefix}&7{player}: &c{message}"
+      hover:
+        enabled: true
+        lines:
+          - "&cAdmin &7• &fPing: {ping}ms"
+
+# Chat Emojis
+chat-emoji:
+  enabled: true
+  emojis:
+    - name: "smile"
+      aliases: [":)", ":smile:"]
+      replacement: "☺"
+    - name: "heart"
+      aliases: ["<3", ":heart:"]
+      replacement: "❤"
+
+# Chat Previews
+chat-previews:
+  enabled: true
+  tokens:
+    item: ["[item]", "[i]", "{item}", "{i}"]
+    inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]
+
+# Chat Management
+chat-management:
+  mute:
+    enabled: true
+    permission: "rexchat.mute"
+    muted-message: "%rc_prefix%&fThe chat is currently muted."
+    mute-announcement: "%rc_prefix%&fThe chat has been muted by {player}"
+    unmute-announcement: "%rc_prefix%&fThe chat has been unmuted by {player}"
+  clear:
+    enabled: true
+    permission: "rexchat.clear"
+    clear-message: "%rc_prefix%&fThe chat has been cleared by {player}"
+    lines: 100
+
+# Custom Commands
+commands:
+  discord:
+    enabled: true
+    command: "discord"
+    aliases: ["dc"]
+    permission: ""
+    message-list:
+      - "%rc_prefix%&6Discord Server"
+      - "&7• &fJoin our community: &6https://discord.gg/yourserver"
+      - "&7• &fOnline Members: &61,234+"
+  rules:
+    enabled: true
+    command: "rules"
+    aliases: ["rule"]
+    permission: ""
+    message-list:
+      - "%rc_prefix%&6Server Rules"
+      - "&7• &fBe respectful to all players"
+      - "&7• &fNo spamming or excessive caps"
+      - "&7• &fNo advertising or self-promotion"
+      - "&7• &fNo griefing or stealing"
+      - "&7• &fUse appropriate language"
+  store:
+    enabled: true
+    command: "store"
+    aliases: ["shop"]
+    permission: ""
+    message: "%rc_prefix%&6Store &7• &fVisit our store: &6https://store.yourserver.com"
+  help:
+    enabled: true
+    command: "help"
+    aliases: ["?"]
+    permission: ""
+    message-list:
+      - "%rc_prefix%&6Available Commands"
+      - "&7• &#ffa500/discord &7- &fJoin our Discord community"
+      - "&7• &#ffa500/rules &7- &fView server rules"
+      - "&7• &#ffa500/store &7- &fVisit our store"
+      - "&7• &#ffa500/help &7- &fShow this help message"</code></pre>
+
+            <div class="warning">
+                <strong>Important:</strong> After making changes to the config, use <code>/rc reload</code> to apply them without restarting the server.
+            </div>
+
+            <h2>Support & Links</h2>
+            <ul>
+                <li><a href="https://github.com/rexsystems/RexChat" target="_blank">GitHub Repository</a></li>
+                <li><a href="https://github.com/rexsystems/RexChat/releases" target="_blank">Download Latest Release</a></li>
+                <li><a href="https://github.com/rexsystems/RexChat/issues" target="_blank">Report Issues</a></li>
+            </ul>
+        </main>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 RexSystems. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="docs.js"></script>
+</body>
+</html>

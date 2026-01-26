@@ -1,0 +1,3 @@
+# RexChat | Please dont touch this file.
+chat:
+  muted: false # This is the chat state. (true = muted, false = unmuted)
