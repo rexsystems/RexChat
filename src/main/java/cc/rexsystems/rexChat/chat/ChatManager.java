@@ -187,6 +187,9 @@ public class ChatManager implements Listener {
                 .getString("chat-management.clear.clear-message",
                         "%rc_prefix%&#00ff00The chat has been cleared by {player}");
         broadcastMessage(clearMessage.replace("{player}", executor));
+        
+        // Fire event
+        Bukkit.getPluginManager().callEvent(new cc.rexsystems.rexChat.api.events.ChatClearEvent(executor));
     }
 
     public void toggleMute(String executor) {
@@ -202,6 +205,9 @@ public class ChatManager implements Listener {
                         "%rc_prefix%&#00ff00The chat has been unmuted by {player}");
 
         broadcastMessage(message.replace("{player}", executor));
+        
+        // Fire event
+        Bukkit.getPluginManager().callEvent(new cc.rexsystems.rexChat.api.events.ChatMuteEvent(chatMuted, executor));
     }
 
     private void sendMessage(Player player, String message) {
