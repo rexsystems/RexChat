@@ -102,18 +102,18 @@ public class ChatColorCommand implements CommandExecutor, TabCompleter {
         sendMessage(player, prefix + "&6Available Chat Colors:");
 
         if (available.isEmpty()) {
-            sendMessage(player, prefix + "&7No colors available.");
+            sendMessage(player, "  &7No colors available.");
             return;
         }
 
         for (ChatColorPreset preset : available.values()) {
             String status = preset.id().equals(currentColor) ? " &a(selected)" : "";
-            sendMessage(player, prefix + "  " + preset.format() + preset.displayName() + status);
+            sendMessage(player, "  " + preset.format() + preset.displayName() + status);
         }
 
         sendMessage(player, "");
-        sendMessage(player, prefix + "&7Use &e/chatcolor set <color> &7to select.");
-        sendMessage(player, prefix + "&7Use &e/chatcolor off &7to remove.");
+        sendMessage(player, "  &7Use &e/chatcolor set <color> &7to select.");
+        sendMessage(player, "  &7Use &e/chatcolor off &7to remove.");
     }
 
     private void sendMessage(Player player, String message) {

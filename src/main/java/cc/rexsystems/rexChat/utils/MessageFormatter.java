@@ -169,6 +169,9 @@ public class MessageFormatter {
             message = cc.rexsystems.rexChat.utils.PapiUtils.apply(sender, message);
         }
 
+        // Process preview tokens BEFORE applying colors so they work correctly
+        message = PreviewTokenUtils.apply(sender, message, plugin);
+
         // Check if player has permission to use colors in chat
         if (!sender.hasPermission("rexchat.chatcolor")) {
             // No permission: strip ALL color codes completely (legacy, hex with &, hex without &)
@@ -184,10 +187,8 @@ public class MessageFormatter {
         // Apply emojis (configurable) and mention highlight after stripping user colors
         message = EmojiUtils.apply(sender, message, cfg);
         message = MentionUtils.applyHighlight(sender, message, cfg);
-        // NOTE: [item]/[inventory] tokens are now processed via ItemTokenProcessor
-        // AFTER Component creation
-        // This is required because MiniMessage can't handle legacy colors inside hover
-        // tags
+        // NOTE: Preview tokens are now processed BEFORE color application
+        // This ensures [item]/[inventory] tokens work even when chat colors are enabled
 
         String world = sender.getWorld().getName();
         int ping = getPing(sender);
