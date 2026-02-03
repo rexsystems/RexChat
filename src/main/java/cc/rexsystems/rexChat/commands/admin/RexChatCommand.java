@@ -41,6 +41,11 @@ public class RexChatCommand extends BaseCommand {
 
             plugin.getConfigManager().loadConfigs();
 
+            // Reload chat color presets
+            if (plugin.getChatColorManager() != null) {
+                plugin.getChatColorManager().loadPresets();
+            }
+
             // NOTE: Config color conversion DISABLED
             plugin.getCommandManager().loadCommands();
 
