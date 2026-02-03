@@ -113,7 +113,7 @@ chat-format:
   # Base format. Available placeholders:
   # {player}, {display_name}, {message}, {world}, {health}, {max_health}, {x}, {y}, {z}, {ping}
   # {prefix} resolves via LuckPerms/Vault directly (no PAPI required)
-  format: "{prefix}&7{player} {tag}: &f{message}"
+  format: "{prefix}&7{player}: &f{message}"
   player:
     hover:
       enabled: true

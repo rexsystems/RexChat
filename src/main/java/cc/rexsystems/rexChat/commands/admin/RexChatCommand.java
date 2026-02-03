@@ -28,10 +28,10 @@ public class RexChatCommand extends BaseCommand {
             String authors = String.join(", ", plugin.getDescription().getAuthors());
 
             sendMessage(sender, prefix + "&6" + name + " &7v" + version);
-            sendMessage(sender, prefix + "&7Made by: &f" + authors);
-            sendMessage(sender, prefix + "&7Website: &f" + plugin.getDescription().getWebsite());
+            sendMessage(sender, "  &7Made by: &f" + authors);
+            sendMessage(sender, "  &7Website: &f" + plugin.getDescription().getWebsite());
             sendMessage(sender, "");
-            sendMessage(sender, prefix + "&7Use &e/" + label + " help &7for help and available commands.");
+            sendMessage(sender, "  &7Use &e/" + label + " help &7for help and available commands.");
             return true;
         }
 
@@ -228,42 +228,42 @@ public class RexChatCommand extends BaseCommand {
     private void showHelp(CommandSender sender, String label) {
         String prefix = plugin.getConfigManager().getConfig().getString("messages.prefix", "");
 
-        sendMessage(sender, prefix + "&6=== &fRexChat Help &6===");
+        sendMessage(sender, prefix + "&6RexChat Help");
         sendMessage(sender, "");
 
         // Admin commands
         if (hasPermissionForHelp(sender, "rexchat.admin")) {
-            sendMessage(sender, prefix + "&6Admin Commands:");
-            sendMessage(sender, prefix + "  &e/" + label + " reload &7- Reload plugin configuration");
-            sendMessage(sender, prefix + "  &e/" + label + " inv [player] &7- Preview player inventory");
-            sendMessage(sender, prefix + "  &e/" + label + " item [player] &7- Preview player's held item");
+            sendMessage(sender, "  &6Admin Commands:");
+            sendMessage(sender, "    &e/" + label + " reload &7- Reload plugin configuration");
+            sendMessage(sender, "    &e/" + label + " inv [player] &7- Preview player inventory");
+            sendMessage(sender, "    &e/" + label + " item [player] &7- Preview player's held item");
             sendMessage(sender, "");
         }
 
         // Preview commands
         if (hasPermissionForHelp(sender, "rexchat.preview.inv")
                 || hasPermissionForHelp(sender, "rexchat.preview.item")) {
-            sendMessage(sender, prefix + "&6Preview Commands:");
+            sendMessage(sender, "  &6Preview Commands:");
             if (hasPermissionForHelp(sender, "rexchat.preview.inv")) {
-                sendMessage(sender, prefix + "  &e/" + label + " inv [player] &7- Preview player inventory");
+                sendMessage(sender, "    &e/" + label + " inv [player] &7- Preview player inventory");
             }
             if (hasPermissionForHelp(sender, "rexchat.preview.item")) {
-                sendMessage(sender, prefix + "  &e/" + label + " item [player] &7- Preview player's held item");
+                sendMessage(sender, "    &e/" + label + " item [player] &7- Preview player's held item");
             }
             sendMessage(sender, "");
         }
 
         // General commands
-        sendMessage(sender, prefix + "&6General Commands:");
+        sendMessage(sender, "  &6General Commands:");
         if (hasPermissionForHelp(sender, "rexchat.clear")) {
-            sendMessage(sender, prefix + "  &e/clearchat &7- Clear the chat");
+            sendMessage(sender, "    &e/clearchat &7- Clear the chat");
         }
         if (hasPermissionForHelp(sender, "rexchat.mute")) {
-            sendMessage(sender, prefix + "  &e/mutechat &7- Toggle chat mute");
+            sendMessage(sender, "    &e/mutechat &7- Toggle chat mute");
         }
 
         sendMessage(sender, "");
-        sendMessage(sender, prefix + "&7Use &e/" + label + " help &7to see this help again.");
+        sendMessage(sender, "  &7Use &e/" + label + " help &7to see this help again.");
     }
 
     private boolean hasPermissionForHelp(CommandSender sender, String permission) {
