@@ -82,5 +82,8 @@ $RECYCLE.BIN/
 # Preview/test folders
 preview-*/
 
+# Docs site (junction to rexsystems-docs repo)
+docs-site/
+
 # Personal server paths (from pom.xml)
 C:/Users/*/Documents/
