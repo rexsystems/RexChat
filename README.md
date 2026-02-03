@@ -71,7 +71,15 @@ The compiled jar will be in the `target` folder.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+RexChat is licensed under the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
+
+**What this means:**
+- ✅ Free to use, modify, and distribute
+- ✅ Can be used on commercial servers
+- ❌ Cannot sell closed-source versions
+- ❌ Modifications must be open source (GPL v3)
+
+For more information: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Links
 
