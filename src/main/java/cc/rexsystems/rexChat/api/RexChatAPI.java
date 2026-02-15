@@ -134,4 +134,44 @@ public class RexChatAPI {
     public RexChat getPlugin() {
         return plugin;
     }
+    
+    /**
+     * Check if proximity chat is enabled
+     * 
+     * @return true if proximity chat is enabled
+     * @since 1.6.1
+     */
+    public boolean isProximityChatEnabled() {
+        return plugin.getConfigManager().getConfig().getBoolean("chat-management.proximity.enabled", false);
+    }
+    
+    /**
+     * Get the proximity chat radius in blocks
+     * 
+     * @return Radius in blocks (0 = unlimited)
+     * @since 1.6.1
+     */
+    public double getProximityChatRadius() {
+        return plugin.getConfigManager().getConfig().getDouble("chat-management.proximity.radius", 100.0);
+    }
+    
+    /**
+     * Set proximity chat enabled state
+     * 
+     * @param enabled true to enable, false to disable
+     * @since 1.6.1
+     */
+    public void setProximityChatEnabled(boolean enabled) {
+        plugin.getConfigManager().getConfig().set("chat-management.proximity.enabled", enabled);
+    }
+    
+    /**
+     * Set proximity chat radius
+     * 
+     * @param radius Radius in blocks (0 = unlimited)
+     * @since 1.6.1
+     */
+    public void setProximityChatRadius(double radius) {
+        plugin.getConfigManager().getConfig().set("chat-management.proximity.radius", Math.max(0, radius));
+    }
 }

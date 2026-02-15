@@ -130,9 +130,8 @@ public class MessageFormatter {
                 base = out.toArray(new BaseComponent[0]);
             }
 
-            // Send to all online players
-            Bukkit.getOnlinePlayers()
-                    .forEach(p -> SchedulerUtils.runForPlayer(plugin, p, () -> p.spigot().sendMessage(base)));
+            // Send to players based on proximity settings
+            sendToRecipients(sender, base, cfg);
             // Console: strip any remaining wrappers and print plain text
             String consolePlain = rendered
                     .replaceAll("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>(.*?)</click></hover>", "$1");
@@ -142,8 +141,8 @@ public class MessageFormatter {
 
         Component component = buildFormattedComponent(sender, message);
         Component finalComponent = component;
-        Bukkit.getOnlinePlayers()
-                .forEach(p -> SchedulerUtils.runForPlayer(plugin, p, () -> p.sendMessage(finalComponent)));
+        // Send to players based on proximity settings
+        sendToRecipients(sender, finalComponent, cfg);
         // For console, also provide a plain-text fallback that strips token wrappers
         try {
             String consolePlain = buildRenderedString(sender, message)
@@ -169,9 +168,6 @@ public class MessageFormatter {
             message = cc.rexsystems.rexChat.utils.PapiUtils.apply(sender, message);
         }
 
-        // Process preview tokens BEFORE applying colors so they work correctly
-        message = PreviewTokenUtils.apply(sender, message, plugin);
-
         // Check if player has permission to use colors in chat
         if (!sender.hasPermission("rexchat.chatcolor")) {
             // No permission: strip ALL color codes completely (legacy, hex with &, hex without &)
@@ -187,8 +183,10 @@ public class MessageFormatter {
         // Apply emojis (configurable) and mention highlight after stripping user colors
         message = EmojiUtils.apply(sender, message, cfg);
         message = MentionUtils.applyHighlight(sender, message, cfg);
-        // NOTE: Preview tokens are now processed BEFORE color application
-        // This ensures [item]/[inventory] tokens work even when chat colors are enabled
+        // NOTE: [item]/[inventory] tokens are now processed via ItemTokenProcessor
+        // AFTER Component creation
+        // This is required because MiniMessage can't handle legacy colors inside hover
+        // tags
 
         String world = sender.getWorld().getName();
         int ping = getPing(sender);
@@ -214,6 +212,15 @@ public class MessageFormatter {
                 .replace("%luckperms_prefix%", chatPrefix);
 
         rendered = PapiUtils.apply(sender, rendered);
+
+        // Add proximity range indicator if enabled
+        boolean proximityEnabled = cfg.getBoolean("chat-management.proximity.enabled", false);
+        boolean showIndicator = cfg.getBoolean("chat-management.proximity.show-range-indicator", false);
+        if (proximityEnabled && showIndicator) {
+            String indicator = cfg.getString("chat-management.proximity.range-indicator", "&7[Local] ");
+            rendered = indicator + rendered;
+        }
+
         return rendered;
     }
 
@@ -574,5 +581,70 @@ public class MessageFormatter {
             }
         }
         return result.toString();
+    }
+
+    /**
+     * Send message to recipients based on proximity settings.
+     * Supports both legacy (BaseComponent[]) and modern (Component) formats.
+     */
+    private void sendToRecipients(Player sender, Object message, FileConfiguration cfg) {
+        boolean proximityEnabled = cfg.getBoolean("chat-management.proximity.enabled", false);
+        double radius = cfg.getDouble("chat-management.proximity.radius", 100.0);
+        String bypassPerm = cfg.getString("chat-management.proximity.bypass-permission", "rexchat.proximity.bypass");
+        String noRecipientsMsg = cfg.getString("chat-management.proximity.no-recipients-message", 
+            "%rc_prefix%&7No one is nearby to hear you.");
+
+        java.util.List<Player> recipients = new java.util.ArrayList<>();
+
+        if (!proximityEnabled || radius <= 0) {
+            // Global chat - send to everyone
+            recipients.addAll(Bukkit.getOnlinePlayers());
+        } else {
+            // Proximity chat - only send to nearby players
+            org.bukkit.Location senderLoc = sender.getLocation();
+            double radiusSquared = radius * radius;
+
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                // Always include sender
+                if (p.equals(sender)) {
+                    recipients.add(p);
+                    continue;
+                }
+
+                // Players with bypass permission see all messages
+                if (p.hasPermission(bypassPerm)) {
+                    recipients.add(p);
+                    continue;
+                }
+
+                // Check if player is in same world and within radius
+                if (p.getWorld().equals(sender.getWorld())) {
+                    double distSquared = p.getLocation().distanceSquared(senderLoc);
+                    if (distSquared <= radiusSquared) {
+                        recipients.add(p);
+                    }
+                }
+            }
+
+            // Notify sender if no one heard them (excluding themselves)
+            if (recipients.size() <= 1) {
+                String prefix = cfg.getString("messages.prefix", "");
+                String msg = noRecipientsMsg.replace("%rc_prefix%", prefix);
+                MessageUtils.sendMessage(sender, msg);
+            }
+        }
+
+        // Send message to all recipients
+        if (message instanceof BaseComponent[]) {
+            BaseComponent[] components = (BaseComponent[]) message;
+            for (Player p : recipients) {
+                SchedulerUtils.runForPlayer(plugin, p, () -> p.spigot().sendMessage(components));
+            }
+        } else if (message instanceof Component) {
+            Component component = (Component) message;
+            for (Player p : recipients) {
+                SchedulerUtils.runForPlayer(plugin, p, () -> p.sendMessage(component));
+            }
+        }
     }
 }

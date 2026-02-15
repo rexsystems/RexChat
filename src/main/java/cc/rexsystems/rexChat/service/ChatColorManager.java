@@ -102,6 +102,7 @@ public class ChatColorManager {
     /**
      * Apply the player's preset color to their message.
      * Returns the message with color applied, or original if no preset selected.
+     * IMPORTANT: Does NOT color preview tokens like [item], [i], [inv], [inventory].
      */
     public String applyPlayerColor(Player player, String message) {
         String colorName = getPlayerColor(player);
@@ -119,8 +120,69 @@ public class ChatColorManager {
             return message;
         }
 
-        // Apply the color format to the message
-        return preset.format() + message;
+        // Get preview tokens from config
+        org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfigManager().getConfig();
+        java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
+        java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
+        
+        // Default tokens if not configured
+        if (itemTokens.isEmpty()) {
+            itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
+        }
+        if (invTokens.isEmpty()) {
+            invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
+        }
+        
+        // Combine all tokens
+        java.util.List<String> allTokens = new java.util.ArrayList<>();
+        allTokens.addAll(itemTokens);
+        allTokens.addAll(invTokens);
+        
+        // Build regex pattern to match any token (case-insensitive)
+        StringBuilder patternBuilder = new StringBuilder("(");
+        for (int i = 0; i < allTokens.size(); i++) {
+            if (i > 0) patternBuilder.append("|");
+            // Escape special regex characters in token
+            String token = allTokens.get(i).toLowerCase();
+            token = token.replace("[", "\\[").replace("]", "\\]")
+                        .replace("{", "\\{").replace("}", "\\}");
+            patternBuilder.append(token);
+        }
+        patternBuilder.append(")");
+        
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+            patternBuilder.toString(), 
+            java.util.regex.Pattern.CASE_INSENSITIVE
+        );
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+        
+        StringBuilder result = new StringBuilder();
+        int lastEnd = 0;
+        
+        while (matcher.find()) {
+            // Apply color to text BEFORE the token
+            String beforeToken = message.substring(lastEnd, matcher.start());
+            if (!beforeToken.isEmpty()) {
+                result.append(preset.format()).append(beforeToken);
+            }
+            
+            // Keep the token unchanged (no color applied)
+            result.append(matcher.group());
+            lastEnd = matcher.end();
+        }
+        
+        // Apply color to remaining text AFTER last token
+        String afterTokens = message.substring(lastEnd);
+        if (!afterTokens.isEmpty()) {
+            result.append(preset.format()).append(afterTokens);
+        }
+        
+        // If no tokens found, apply color to entire message
+        if (lastEnd == 0) {
+            return preset.format() + message;
+        }
+        
+        return result.toString();
     }
 
     /**

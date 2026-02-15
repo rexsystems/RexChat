@@ -23,8 +23,7 @@ public class ItemDisplayBuilder {
 
     /**
      * Create a complete item display component with hover and click events.
-     * Uses config templates: text (for multiple items) and singular-text (for
-     * single item)
+     * Uses config template for label formatting.
      */
     public Component createItemDisplay(ItemStack item, Player player, String itemId) {
         if (item == null || item.getType() == Material.AIR) {
@@ -37,12 +36,6 @@ public class ItemDisplayBuilder {
         Component itemName = item.displayName();
 
         // Paper returns [Item Name] with brackets - we need to strip them
-        // Serialize to plain text just to check/strip brackets
-        String plainCheck = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                .plainText().serialize(itemName);
-
-        // If it has brackets, we need to extract the inner content
-        // Use MiniMessage serializer to preserve HEX colors then strip brackets
         String miniSerialized = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
                 .builder()
                 .hexColors() // IMPORTANT: Preserve hex colors!
@@ -52,35 +45,29 @@ public class ItemDisplayBuilder {
 
         // Strip brackets from serialized version
         if (miniSerialized.startsWith("[") || miniSerialized.matches("^§[0-9a-fk-or]\\[.*")) {
-            // Remove opening bracket with optional color prefix
             miniSerialized = miniSerialized.replaceFirst("^(§[0-9a-fk-orx]|&#[0-9a-fA-F]{6})*\\[", "");
         }
         if (miniSerialized.endsWith("]") || miniSerialized.matches(".*§[0-9a-fk-or]\\]$")) {
-            // Remove closing bracket with optional color suffix
             miniSerialized = miniSerialized.replaceFirst("(§[0-9a-fk-orx]|&#[0-9a-fA-F]{6})*\\]$", "");
         }
 
-        // Build the final display component
-        Component display;
+        // Get label template from config
+        String labelTemplate = plugin.getConfigManager().getConfig()
+                .getString("messages.preview.item.label-template", "&7[&f{label}&7]");
+
+        // Build label with item name and amount
+        String itemLabel;
         if (amount == 1) {
-            // [Item Name] - no amount
-            display = Component.empty()
-                    .append(Component.text("[", NamedTextColor.WHITE))
-                    .append(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
-                            .builder().hexColors().useUnusualXRepeatedCharacterHexFormat().build()
-                            .deserialize(miniSerialized))
-                    .append(Component.text("]", NamedTextColor.WHITE));
+            itemLabel = miniSerialized;
         } else {
-            // [Item Name x64] - with amount
-            display = Component.empty()
-                    .append(Component.text("[", NamedTextColor.WHITE))
-                    .append(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
-                            .builder().hexColors().useUnusualXRepeatedCharacterHexFormat().build()
-                            .deserialize(miniSerialized))
-                    .append(Component.text(" ", NamedTextColor.WHITE))
-                    .append(Component.text("x" + amount, NamedTextColor.AQUA))
-                    .append(Component.text("]", NamedTextColor.WHITE));
+            itemLabel = miniSerialized + " &bx" + amount;
         }
+
+        // Replace {label} placeholder in template
+        String finalLabel = labelTemplate.replace("{label}", itemLabel);
+
+        // Parse the final label with colors from config
+        Component display = ColorUtils.parseComponent(finalLabel);
 
         // Create NATIVE item hover event (shows actual item tooltip!)
         HoverEvent<HoverEvent.ShowItem> itemHover = createItemHoverEvent(item);

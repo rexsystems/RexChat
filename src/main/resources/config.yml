@@ -27,8 +27,8 @@ messages:
       title: "&6Item: &f{player}"
       none: "%rc_prefix%&7You are not holding any item."
       hover: "&7Click to view {player}'s item"
-      text: "&f[&f{Item} &bx{Amount}&f]"
-      singular-text: "&f[&f{Item}&f]"
+      text: "&7[&f{Item} &bx{Amount}&7]"
+      singular-text: "&7[&f{Item}&7]"
       empty-label: "&7[&eHold an item to show it&7]"
       token-empty-error: "%rc_prefix%&cYou need to hold an item to show it."
       open: "%rc_prefix%&7Opening item preview for &6{player}"
@@ -182,6 +182,18 @@ chat-management:
     permission: "rexchat.clear"
     clear-message: "%rc_prefix%&fThe chat has been cleared by {player}"
     lines: 100
+  proximity:
+    # Global proximity chat - messages only visible to players within radius
+    enabled: false
+    # Radius in blocks (0 = unlimited/global chat)
+    radius: 100
+    # Permission to bypass proximity limit (see global chat)
+    bypass-permission: "rexchat.proximity.bypass"
+    # Message shown to sender when no one is in range
+    no-recipients-message: "%rc_prefix%&7No one is nearby to hear you."
+    # Show range indicator in chat format (optional)
+    show-range-indicator: false
+    range-indicator: "&7[Local] "
 
 # Commands Configuration
 commands:
