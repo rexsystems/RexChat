@@ -231,6 +231,9 @@ public class ChatManager implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        // Invalidate mention pattern cache when player list changes
+        cc.rexsystems.rexChat.utils.MentionUtils.invalidateCache();
+
         // Custom join message handling
         String joinMsg = plugin.getConfigManager().getConfig().getString("join-leave.join-message", null);
         if (joinMsg != null) {
@@ -279,8 +282,14 @@ public class ChatManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        // Invalidate mention pattern cache when player list changes
+        cc.rexsystems.rexChat.utils.MentionUtils.invalidateCache();
+
         // Clean up inventory snapshot on quit
         plugin.getInventorySnapshotService().removeSnapshot(event.getPlayer());
+        // Clean up chat dedup tracking
+        lastChat.remove(event.getPlayer().getUniqueId());
+        lastCommandAt.remove(event.getPlayer().getUniqueId());
 
         String leaveMsg = plugin.getConfigManager().getConfig().getString("join-leave.leave-message", null);
         if (leaveMsg != null) {

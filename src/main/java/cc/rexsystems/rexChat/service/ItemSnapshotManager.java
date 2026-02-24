@@ -51,7 +51,7 @@ public class ItemSnapshotManager {
     /**
      * Clean up expired entries.
      */
-    private void cleanupExpired() {
+    public void cleanupExpired() {
         long now = System.currentTimeMillis();
         snapshots.entrySet().removeIf(e -> now - e.getValue().timestamp > EXPIRY_MS);
     }

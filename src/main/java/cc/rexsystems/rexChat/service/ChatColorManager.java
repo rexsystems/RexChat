@@ -15,6 +15,8 @@ import java.util.UUID;
 public class ChatColorManager {
     private final RexChat plugin;
     private final Map<String, ChatColorPreset> presets = new LinkedHashMap<>();
+    // Cached token pattern for applyPlayerColor - rebuilt when presets reload
+    private volatile java.util.regex.Pattern cachedTokenPattern;
 
     public ChatColorManager(RexChat plugin) {
         this.plugin = plugin;
@@ -27,6 +29,7 @@ public class ChatColorManager {
      */
     public void loadPresets() {
         presets.clear();
+        cachedTokenPattern = null; // invalidate cached pattern
 
         ConfigurationSection section = plugin.getConfigManager().getConfig()
                 .getConfigurationSection("chatcolor.colors");
@@ -120,40 +123,46 @@ public class ChatColorManager {
             return message;
         }
 
-        // Get preview tokens from config
-        org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfigManager().getConfig();
-        java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
-        java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
-        
-        // Default tokens if not configured
-        if (itemTokens.isEmpty()) {
-            itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
+        // Get or build cached token pattern
+        java.util.regex.Pattern pattern = cachedTokenPattern;
+        if (pattern == null) {
+            // Get preview tokens from config
+            org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfigManager().getConfig();
+            java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
+            java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
+            
+            // Default tokens if not configured
+            if (itemTokens.isEmpty()) {
+                itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
+            }
+            if (invTokens.isEmpty()) {
+                invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
+            }
+            
+            // Combine all tokens
+            java.util.List<String> allTokens = new java.util.ArrayList<>();
+            allTokens.addAll(itemTokens);
+            allTokens.addAll(invTokens);
+            
+            // Build regex pattern to match any token (case-insensitive)
+            StringBuilder patternBuilder = new StringBuilder("(");
+            for (int i = 0; i < allTokens.size(); i++) {
+                if (i > 0) patternBuilder.append("|");
+                // Escape special regex characters in token
+                String token = allTokens.get(i).toLowerCase();
+                token = token.replace("[", "\\[").replace("]", "\\]")
+                            .replace("{", "\\{").replace("}", "\\}");
+                patternBuilder.append(token);
+            }
+            patternBuilder.append(")");
+            
+            pattern = java.util.regex.Pattern.compile(
+                patternBuilder.toString(), 
+                java.util.regex.Pattern.CASE_INSENSITIVE
+            );
+            cachedTokenPattern = pattern;
         }
-        if (invTokens.isEmpty()) {
-            invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
-        }
         
-        // Combine all tokens
-        java.util.List<String> allTokens = new java.util.ArrayList<>();
-        allTokens.addAll(itemTokens);
-        allTokens.addAll(invTokens);
-        
-        // Build regex pattern to match any token (case-insensitive)
-        StringBuilder patternBuilder = new StringBuilder("(");
-        for (int i = 0; i < allTokens.size(); i++) {
-            if (i > 0) patternBuilder.append("|");
-            // Escape special regex characters in token
-            String token = allTokens.get(i).toLowerCase();
-            token = token.replace("[", "\\[").replace("]", "\\]")
-                        .replace("{", "\\{").replace("}", "\\}");
-            patternBuilder.append(token);
-        }
-        patternBuilder.append(")");
-        
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-            patternBuilder.toString(), 
-            java.util.regex.Pattern.CASE_INSENSITIVE
-        );
         java.util.regex.Matcher matcher = pattern.matcher(message);
         
         StringBuilder result = new StringBuilder();

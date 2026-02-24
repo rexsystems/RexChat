@@ -15,6 +15,34 @@ import java.util.Set;
  */
 public class MentionUtils {
 
+    // Cache compiled patterns per player name to avoid recompilation on every message
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.regex.Pattern> NAME_PATTERN_CACHE 
+        = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.regex.Pattern> AT_PATTERN_CACHE 
+        = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static java.util.regex.Pattern getNamePattern(String playerName) {
+        return NAME_PATTERN_CACHE.computeIfAbsent(playerName, name -> {
+            String regex = "(?i)(?<!\\w)" + java.util.regex.Pattern.quote(name) + "(?!\\w)";
+            return java.util.regex.Pattern.compile(regex);
+        });
+    }
+
+    private static java.util.regex.Pattern getAtPattern(String playerName) {
+        return AT_PATTERN_CACHE.computeIfAbsent(playerName, name -> {
+            String regex = "(?i)@" + java.util.regex.Pattern.quote(name);
+            return java.util.regex.Pattern.compile(regex);
+        });
+    }
+
+    /**
+     * Clear cached patterns (call on player join/quit to keep cache fresh).
+     */
+    public static void invalidateCache() {
+        NAME_PATTERN_CACHE.clear();
+        AT_PATTERN_CACHE.clear();
+    }
+
     public static boolean isEnabled(FileConfiguration cfg) {
         return cfg.getBoolean("mention.enabled", true);
     }
@@ -32,8 +60,7 @@ public class MentionUtils {
             boolean matched = lower.contains(atNeedle);
             if (!matched && byName) {
                 try {
-                    String namePattern = "(?i)(?<!\\w)" + java.util.regex.Pattern.quote(pname) + "(?!\\w)";
-                    java.util.regex.Pattern pat = java.util.regex.Pattern.compile(namePattern);
+                    java.util.regex.Pattern pat = getNamePattern(pname);
                     matched = pat.matcher(rawMessage).find();
                 } catch (Throwable ignored) { }
             }
@@ -147,14 +174,14 @@ public class MentionUtils {
             String name = p.getName();
             try {
                 // Highlight @Name
-                String regexAt = "(?i)@" + java.util.regex.Pattern.quote(name);
+                java.util.regex.Pattern atPat = getAtPattern(name);
                 String replacementAt = java.util.regex.Matcher.quoteReplacement(color + "@" + name + "&r");
-                result = result.replaceAll(regexAt, replacementAt);
+                result = atPat.matcher(result).replaceAll(replacementAt);
                 // Highlight plain Name if enabled and not part of a larger word
                 if (byName) {
-                    String regexName = "(?i)(?<!\\w)" + java.util.regex.Pattern.quote(name) + "(?!\\w)";
+                    java.util.regex.Pattern pat = getNamePattern(name);
                     String replacementName = java.util.regex.Matcher.quoteReplacement(color + "@" + name + "&r");
-                    result = result.replaceAll(regexName, replacementName);
+                    result = pat.matcher(result).replaceAll(replacementName);
                 }
             } catch (Throwable ignored) { }
         }

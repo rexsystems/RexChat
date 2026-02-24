@@ -85,6 +85,13 @@ public final class RexChat extends JavaPlugin {
             
             updateChecker.checkForUpdatesAsync();
 
+            // Schedule periodic cleanup of expired snapshots/tokens (every 5 minutes)
+            getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+                if (previewAccessManager != null) previewAccessManager.cleanupExpiredTokens();
+                if (itemSnapshotManager != null) itemSnapshotManager.cleanupExpired();
+                if (inventorySnapshotService != null) inventorySnapshotService.cleanupExpired();
+            }, 6000L, 6000L);
+
             logUtils.info("RexChat has been enabled successfully!");
         } catch (Exception e) {
             getLogger().severe("Failed to enable RexChat: " + e.getMessage());

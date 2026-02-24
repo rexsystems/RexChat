@@ -5,7 +5,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,8 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class InventorySnapshotService {
     private final RexChat plugin;
-    private final Map<UUID, InventorySnapshot> snapshots = new HashMap<>();
-    private final Map<UUID, ItemStack> itemSnapshots = new HashMap<>();
+    private final Map<UUID, InventorySnapshot> snapshots = new ConcurrentHashMap<>();
+    private final Map<UUID, ItemStack> itemSnapshots = new ConcurrentHashMap<>();
 
     // ID-based storage (for unique IDs per [inventory] usage)
     private final Map<String, InventorySnapshot> snapshotsById = new ConcurrentHashMap<>();
@@ -89,7 +88,7 @@ public class InventorySnapshotService {
         return playerNameById.get(id);
     }
 
-    private void cleanupExpired() {
+    public void cleanupExpired() {
         long now = System.currentTimeMillis();
         timestampsById.entrySet().removeIf(e -> {
             if (now - e.getValue() > EXPIRY_MS) {

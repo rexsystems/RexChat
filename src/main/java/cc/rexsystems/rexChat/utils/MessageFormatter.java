@@ -17,6 +17,12 @@ import net.md_5.bungee.api.chat.TextComponent;
 public class MessageFormatter {
     private final RexChat plugin;
 
+    // Cached regex patterns to avoid recompilation on every message
+    private static final java.util.regex.Pattern LEGACY_TOKEN_PATTERN = java.util.regex.Pattern
+            .compile("(?is)<hover:show_text:'([^']*)'><click:run_command:'([^']*)'>(.*?)</click></hover>");
+    private static final java.util.regex.Pattern STRIP_TOKEN_PATTERN = java.util.regex.Pattern
+            .compile("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>(.*?)</click></hover>");
+
     public MessageFormatter(RexChat plugin) {
         this.plugin = plugin;
     }
@@ -36,8 +42,7 @@ public class MessageFormatter {
             java.util.List<BaseComponent> out = new java.util.ArrayList<>();
             String s = rendered;
             // FIXED: use a global, case-insensitive, dot-all pattern to catch every wrapper
-            java.util.regex.Pattern pat = java.util.regex.Pattern
-                    .compile("(?is)<hover:show_text:'([^']*)'><click:run_command:'([^']*)'>(.*?)</click></hover>");
+            java.util.regex.Pattern pat = LEGACY_TOKEN_PATTERN;
             java.util.regex.Matcher m = pat.matcher(s);
             int pos = 0;
             boolean hadToken = false;
@@ -102,6 +107,8 @@ public class MessageFormatter {
                                 .replace("{z}", String.valueOf(sender.getLocation().getBlockZ()))
                                 .replace("{ping}", String.valueOf(getPing(sender)));
                         hoverJoined = PapiUtils.apply(sender, hoverJoined);
+                        // Reset formatting at the start of each line to prevent color/style bleeding
+                        hoverJoined = hoverJoined.replace("\n", "\n§r");
                         String hoverLegacy = ColorUtils.translateLegacyColors(hoverJoined);
                         BaseComponent[] hoverComp = TextComponent.fromLegacyText(hoverLegacy);
 
@@ -134,7 +141,7 @@ public class MessageFormatter {
             sendToRecipients(sender, base, cfg);
             // Console: strip any remaining wrappers and print plain text
             String consolePlain = rendered
-                    .replaceAll("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>(.*?)</click></hover>", "$1");
+                    .replaceAll(STRIP_TOKEN_PATTERN.pattern(), "$1");
             MessageUtils.sendMessage(Bukkit.getConsoleSender(), consolePlain);
             return;
         }
@@ -146,7 +153,7 @@ public class MessageFormatter {
         // For console, also provide a plain-text fallback that strips token wrappers
         try {
             String consolePlain = buildRenderedString(sender, message)
-                    .replaceAll("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>(.*?)</click></hover>", "$1");
+                    .replaceAll(STRIP_TOKEN_PATTERN.pattern(), "$1");
             MessageUtils.sendMessage(Bukkit.getConsoleSender(), consolePlain);
         } catch (Throwable ignored) {
             Bukkit.getConsoleSender().sendMessage(finalComponent);
@@ -232,8 +239,7 @@ public class MessageFormatter {
         // If message contains preview token wrappers, do NOT apply global hover/click
         boolean hasPreviewWrappers = false;
         try {
-            hasPreviewWrappers = java.util.regex.Pattern
-                    .compile("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>.*?</click></hover>")
+            hasPreviewWrappers = STRIP_TOKEN_PATTERN
                     .matcher(rendered)
                     .find();
         } catch (Throwable ignored) {
@@ -268,6 +274,8 @@ public class MessageFormatter {
                         .replace("{ping}", String.valueOf(ping));
 
                 hoverJoined = PapiUtils.apply(sender, hoverJoined);
+                // Reset formatting at the start of each line to prevent color/style bleeding
+                hoverJoined = hoverJoined.replace("\n", "\n<reset>");
                 Component hover = ColorUtils.parseComponent(hoverJoined);
                 component = component.hoverEvent(HoverEvent.showText(hover));
             }
@@ -316,6 +324,8 @@ public class MessageFormatter {
                         .replace("{z}", String.valueOf(sender.getLocation().getBlockZ()))
                         .replace("{ping}", String.valueOf(getPing(sender)));
                 hoverJoined = PapiUtils.apply(sender, hoverJoined);
+                // Reset formatting at the start of each line to prevent color/style bleeding
+                hoverJoined = hoverJoined.replace("\n", "\n<reset>");
                 Component hover = ColorUtils.parseComponent(hoverJoined);
                 decorated = decorated.hoverEvent(HoverEvent.showText(hover));
             }

@@ -15,21 +15,19 @@ public class ColorUtils {
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
     // Pattern for hex codes without & prefix (e.g., #A96EEE)
     // Negative lookbehind ensures it's not part of &#RRGGBB or :#RRGGBB
-    private static final Pattern HEX_PATTERN_NO_AMPERSAND = Pattern.compile("(?<![:&])#([A-Fa-f0-9]{6})(?!\\w)");
+    private static final Pattern HEX_PATTERN_NO_AMPERSAND = Pattern.compile("(?<![:&<])#([A-Fa-f0-9]{6})(?!\\w)");
     private static final Pattern URL_PATTERN = Pattern.compile("(https?://)?([\\w-]+\\.)+[\\w-]+(/[\\w-./?%&=]*)?");
     private static final Pattern COLOR_PATTERN = Pattern.compile("&([0-9a-fk-or])");
     private static final Pattern LEGACY_COLOR_PATTERN = Pattern.compile("§([0-9a-fk-or])");
 
+    private static final Pattern MINIMESSAGE_TAG_PATTERN = Pattern.compile(
+            "(?is)(<hover:show_text:'((?:[^']|'')*)'><click:run_command:'((?:[^']|'')*)'>((?:(?!</click></hover>).)*)</click></hover>)");
+
     public static Component parseComponent(String text) {
         // Protect MiniMessage tags (hover/click) BEFORE any processing
-        // Pattern to match:
-        // <hover:show_text:'...'><click:run_command:'...'>...</click></hover>
-        // Use a more robust pattern that handles escaped quotes and any content
-        Pattern minimessageTagPattern = Pattern.compile(
-                "(?is)(<hover:show_text:'((?:[^']|'')*)'><click:run_command:'((?:[^']|'')*)'>((?:(?!</click></hover>).)*)</click></hover>)");
         java.util.List<String> protectedTags = new java.util.ArrayList<>();
         StringBuffer protectedText = new StringBuffer();
-        Matcher tagMatcher = minimessageTagPattern.matcher(text);
+        Matcher tagMatcher = MINIMESSAGE_TAG_PATTERN.matcher(text);
         int lastEnd = 0;
 
         // Extract and protect MiniMessage tags BEFORE any color conversion
@@ -164,11 +162,11 @@ public class ColorUtils {
         return component;
     }
 
+    private static final Pattern LEGACY_RGB_PATTERN = Pattern.compile("§x(?:§[0-9a-fA-F]){6}");
+
     private static String convertLegacyRGB(String text) {
         // Convert §x§R§R§G§G§B§B format to &#RRGGBB format
-        // Also handle partial patterns that might be broken by other processing
-        Pattern legacyRGB = Pattern.compile("§x(?:§[0-9a-fA-F]){6}");
-        Matcher matcher = legacyRGB.matcher(text);
+        Matcher matcher = LEGACY_RGB_PATTERN.matcher(text);
         StringBuffer buffer = new StringBuffer();
 
         while (matcher.find()) {
@@ -182,12 +180,12 @@ public class ColorUtils {
         return buffer.toString();
     }
 
+    private static final Pattern HEX_WITH_LEGACY_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})&([0-9a-fk-orA-FK-OR])");
+
     private static String convertHexWithLegacyFormatting(String text) {
         // Handle patterns like &#FF4500&lF where hex color is followed by legacy
         // formatting
-        // This converts &#RRGGBB&[code] to <#RRGGBB><code> format
-        Pattern hexWithLegacy = Pattern.compile("&#([A-Fa-f0-9]{6})&([0-9a-fk-orA-FK-OR])");
-        Matcher matcher = hexWithLegacy.matcher(text);
+        Matcher matcher = HEX_WITH_LEGACY_PATTERN.matcher(text);
         StringBuffer buffer = new StringBuffer();
 
         while (matcher.find()) {

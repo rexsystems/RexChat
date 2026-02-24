@@ -2,7 +2,6 @@ package cc.rexsystems.rexChat.service;
 
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,7 +44,7 @@ public class PreviewAccessManager {
         UUID viewerId = viewer.getUniqueId();
         long expiresAt = System.currentTimeMillis() + tokenDurationMs;
 
-        tokens.computeIfAbsent(viewerId, k -> new HashMap<>())
+        tokens.computeIfAbsent(viewerId, k -> new ConcurrentHashMap<>())
                 .put(targetName.toLowerCase(), new AccessToken(targetName, type, expiresAt));
     }
 
