@@ -15,7 +15,7 @@ public class ColorUtils {
     private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
     // Pattern for hex codes without & prefix (e.g., #A96EEE)
     // Negative lookbehind ensures it's not part of &#RRGGBB or :#RRGGBB
-    private static final Pattern HEX_PATTERN_NO_AMPERSAND = Pattern.compile("(?<![:&<])#([A-Fa-f0-9]{6})(?!\\w)");
+    private static final Pattern HEX_PATTERN_NO_AMPERSAND = Pattern.compile("(?<![:&<])#([A-Fa-f0-9]{6})");
     private static final Pattern URL_PATTERN = Pattern.compile("(https?://)?([\\w-]+\\.)+[\\w-]+(/[\\w-./?%&=]*)?");
     private static final Pattern COLOR_PATTERN = Pattern.compile("&([0-9a-fk-or])");
     private static final Pattern LEGACY_COLOR_PATTERN = Pattern.compile("§([0-9a-fk-or])");
