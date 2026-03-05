@@ -18,6 +18,11 @@ public class MessageUtils {
     }
     
     public static void sendMessage(CommandSender sender, String message) {
+        // Parse PAPI placeholders if sender is a player
+        if (sender instanceof org.bukkit.entity.Player) {
+            message = PapiUtils.apply((org.bukkit.entity.Player) sender, message);
+        }
+        
         if (IS_LEGACY) {
             message = ColorUtils.translateLegacyColors(message);
             sender.sendMessage(message);
