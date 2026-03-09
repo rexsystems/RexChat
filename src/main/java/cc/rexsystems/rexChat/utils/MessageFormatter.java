@@ -606,7 +606,11 @@ public class MessageFormatter {
 
         java.util.List<Player> recipients = new java.util.ArrayList<>();
 
-        if (!proximityEnabled || radius <= 0) {
+        // Check if sender has global chat toggle enabled
+        boolean senderHasGlobalToggle = plugin.getDataManager().getData()
+                .getBoolean("proximity-bypass." + sender.getUniqueId().toString(), false);
+
+        if (!proximityEnabled || radius <= 0 || senderHasGlobalToggle || sender.hasPermission(bypassPerm)) {
             // Global chat - send to everyone
             recipients.addAll(Bukkit.getOnlinePlayers());
         } else {

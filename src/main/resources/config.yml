@@ -185,7 +185,7 @@ chat-management:
   proximity:
     # Global proximity chat - messages only visible to players within radius
     enabled: false
-    # Radius in blocks (0 = unlimited/global chat)
+    # Radius in blocks
     radius: 100
     # Permission to bypass proximity limit (see global chat)
     bypass-permission: "rexchat.proximity.bypass"
@@ -194,6 +194,9 @@ chat-management:
     # Show range indicator in chat format (optional)
     show-range-indicator: false
     range-indicator: "&7[Local] "
+    # Messages for /rc global and /rc local commands
+    global-enabled: "%rc_prefix%&aGlobal chat enabled. Everyone will see your messages."
+    local-enabled: "%rc_prefix%&eLocal chat enabled. Only nearby players will see your messages."
 
 # Commands Configuration
 commands:

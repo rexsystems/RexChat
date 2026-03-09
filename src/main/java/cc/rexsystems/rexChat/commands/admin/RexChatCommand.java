@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RexChatCommand extends BaseCommand {
-    private final List<String> subCommands = List.of("reload", "inv", "item", "help");
+    private final List<String> subCommands = List.of("reload", "inv", "item", "help", "global", "local");
 
     public RexChatCommand(RexChat plugin) {
         super(plugin);
@@ -202,6 +202,52 @@ public class RexChatCommand extends BaseCommand {
             return true;
         }
 
+        // /rexchat global - toggle global chat mode (bypass proximity)
+        if (args[0].equalsIgnoreCase("global")) {
+            if (!(sender instanceof org.bukkit.entity.Player)) {
+                sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!hasPermission(sender, "rexchat.proximity.toggle")) {
+                return true;
+            }
+
+            org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+            String uuid = player.getUniqueId().toString();
+            
+            // Set global mode in data
+            plugin.getDataManager().getData().set("proximity-bypass." + uuid, true);
+            plugin.getDataManager().saveData();
+            
+            String msg = plugin.getConfigManager().getConfig()
+                    .getString("messages.proximity.global-enabled", "%rc_prefix%&aGlobal chat enabled. Everyone will see your messages.");
+            sendMessage(sender, msg);
+            return true;
+        }
+
+        // /rexchat local - disable global chat mode (use proximity)
+        if (args[0].equalsIgnoreCase("local")) {
+            if (!(sender instanceof org.bukkit.entity.Player)) {
+                sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!hasPermission(sender, "rexchat.proximity.toggle")) {
+                return true;
+            }
+
+            org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
+            String uuid = player.getUniqueId().toString();
+            
+            // Remove global mode from data
+            plugin.getDataManager().getData().set("proximity-bypass." + uuid, null);
+            plugin.getDataManager().saveData();
+            
+            String msg = plugin.getConfigManager().getConfig()
+                    .getString("messages.proximity.local-enabled", "%rc_prefix%&eLocal chat enabled. Only nearby players will see your messages.");
+            sendMessage(sender, msg);
+            return true;
+        }
+
         String unknownCmd = plugin.getConfigManager().getConfig()
                 .getString("messages.command-not-found", "&cCommand not found.");
         sendMessage(sender, unknownCmd);
@@ -237,6 +283,14 @@ public class RexChatCommand extends BaseCommand {
             sendMessage(sender, "    &e/" + label + " reload &7- Reload plugin configuration");
             sendMessage(sender, "    &e/" + label + " inv [player] &7- Preview player inventory");
             sendMessage(sender, "    &e/" + label + " item [player] &7- Preview player's held item");
+            sendMessage(sender, "");
+        }
+
+        // Proximity toggle commands
+        if (hasPermissionForHelp(sender, "rexchat.proximity.toggle")) {
+            sendMessage(sender, "  &6Proximity Commands:");
+            sendMessage(sender, "    &e/" + label + " global &7- Enable global chat (everyone sees your messages)");
+            sendMessage(sender, "    &e/" + label + " local &7- Enable local chat (only nearby players see your messages)");
             sendMessage(sender, "");
         }
 
