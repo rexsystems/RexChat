@@ -1,91 +1,47 @@
 # RexChat
 
-A modern chat management plugin for Minecraft servers running versions 1.17 through 1.21.4.
+RexChat is a modern chat management plugin designed for survival, SMP and network servers that want a clean, customizable and user-friendly chat experience.
 
-## What it does
+It replaces the default Minecraft chat with formatted messages, colors, mentions, emojis, item previews and quality-of-life tools for both players and staff. With RexChat you can fully control how your chat looks for each group, disable annoying chat reports, let players choose their own chat color, and keep everything clean with powerful clear and mute commands.
 
-RexChat gives you control over your server's chat with essential moderation tools and customizable formatting. It's built to be lightweight and straightforward - no bloat, no unnecessary features.
-
-### Core Features
-
-- **Chat Control** - Mute or clear chat when needed, with bypass permissions for staff
-- **Custom Commands** - Define your own commands through the config file
-- **Chat Formatting** - Customize how messages appear with full color support (including HEX colors on 1.16+)
-- **Player Tooltips** - Hovering over a player's name shows health, location, world, and ping
-- **PlaceholderAPI Support** - Works with PAPI placeholders out of the box
-
-## Requirements
-
-- Java 21+
-- Minecraft 1.17 - 1.21.4
-- Paper or Spigot server
-
-## Installation
-
-1. Drop the plugin jar into your `plugins` folder
-2. Restart the server
-3. Configure settings in `plugins/RexChat/config.yml`
-4. Reload with `/rc reload`
-
-## Commands & Permissions
-
-| Command | Aliases | Permission | What it does |
-|---------|---------|------------|--------------|
-| `/rexchat` | `/rc` | `rexchat.admin` | Main command and reload |
-| `/mutechat` | `/mc` | `rexchat.mute` | Toggle chat mute |
-| `/clearchat` | `/cc` | `rexchat.clear` | Clear chat messages |
-
-Additional permissions:
-- `rexchat.bypass` - Talk when chat is muted
-
-## Configuration
-
-The config file is pretty self-explanatory. You can customize messages, chat format, hover tooltips, and create custom commands. 
-
-Example chat format setup:
-```yaml
-chat-format:
-  enabled: true
-  format: "&7{player}&8: &f{message}"
-  player:
-    hover:
-      enabled: true
-      lines:
-        - "&cHealth: {health}/{max_health}"
-        - "&eWorld: {world}"
-        - "&bLocation: {x}, {y}, {z}"
-        - "&aPing: {ping}ms"
-```
-
-Available placeholders: `{player}`, `{display_name}`, `{message}`, `{world}`, `{health}`, `{max_health}`, `{x}`, `{y}`, `{z}`, `{ping}`
-
-## Building from Source
-
-```bash
-git clone https://github.com/rexsystems/RexChat.git
-cd RexChat
-mvn clean package
-```
-
-The compiled jar will be in the `target` folder.
-
-## License
-
-RexChat is licensed under the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
-
-**What this means:**
-- ✅ Free to use, modify, and distribute
-- ✅ Can be used on commercial servers
-- ❌ Cannot sell closed-source versions
-- ❌ Modifications must be open source (GPL v3)
-
-For more information: https://www.gnu.org/licenses/gpl-3.0.html
-
-## Links
-
-- [Releases](https://github.com/rexsystems/RexChat/releases)
-- [Issues](https://github.com/rexsystems/RexChat/issues)
+Everything is configured through simple YAML files, so you can quickly adapt the plugin to any server style – from small survival communities to larger networks.
 
 ---
 
-Made by RexSystems
+## ✨ Main Features
+
+- Per-group chat formatting with support for prefixes, hover info and placeholders  
+- ClearChat and MuteChat commands for fast moderation  
+- Custom join and leave messages  
+- Mention system with on-screen title and chat highlight  
+- Chat emojis and replacements for common text  
+- Player-selectable chat colors using `/chatcolor`  
+- Chat reporting disabler for modern Minecraft versions  
+- Folia, Paper and Purpur support, optimized for 1.20.4+  
+
+---
+
+## 🔧 Requirements
+
+We only provide support for versions 1.20.4 and above, versions below that should work but it's not guaranteed.
+
+---
+
+## 🔒 Permissions
+
+- `rexchat.admin` - Access to all commands (reloading, muting, clearing)  
+- `rexchat.mutechat` - Allows muting the chat  
+- `rexchat.clearchat` - Allows clearing the chat  
+- `rexchat.bypass` - Allows writing while chat is disabled  
+- `rexchat.chatcolor` - Allows using colors in messages  
+
+---
+
+## ⚙️ Placeholders
+
+- `%rexchat_muted%` — Returns true or false if chat is muted  
+- `%rexchat_chatcolor%` — Returns display name (e.g. "Red", "Gold")  
+- `%rexchat_chatcolor_raw%` — Returns raw name (e.g. "red", "gold")  
+- `%rexchat_chatcolor_format%` — Returns format (e.g. "&c", "<rainbow>")  
+
+---
