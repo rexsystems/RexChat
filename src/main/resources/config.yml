@@ -113,6 +113,11 @@ chat-format:
   # Base format. Available placeholders:
   # {player}, {display_name}, {message}, {world}, {health}, {max_health}, {x}, {y}, {z}, {ping}
   # {prefix} resolves via LuckPerms/Vault directly (no PAPI required)
+  #
+  # Permissions:
+  # - rexchat.chatcolor: Allows using color codes (&c, &#FF0000, #FF0000) in chat
+  # - rexchat.chat.minimessage: Allows using MiniMessage tags (<click>, <hover>, <gradient>, etc.) in chat
+  # - rexchat.chat.placeholders: Allows using PlaceholderAPI placeholders in chat messages
   format: "{prefix}&7{player}: &f{message}"
   player:
     hover:

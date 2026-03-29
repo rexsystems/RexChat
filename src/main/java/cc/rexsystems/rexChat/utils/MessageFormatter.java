@@ -175,6 +175,12 @@ public class MessageFormatter {
             message = cc.rexsystems.rexChat.utils.PapiUtils.apply(sender, message);
         }
 
+        // Check if player has permission to use MiniMessage tags (click, hover, etc.)
+        if (!sender.hasPermission("rexchat.chat.minimessage")) {
+            // No permission: escape MiniMessage tags so they display literally
+            message = escapeMiniMessageTags(message);
+        }
+
         // Check if player has permission to use colors in chat
         if (!sender.hasPermission("rexchat.chatcolor")) {
             // No permission: strip ALL color codes completely (legacy, hex with &, hex without &)
@@ -660,5 +666,21 @@ public class MessageFormatter {
                 SchedulerUtils.runForPlayer(plugin, p, () -> p.sendMessage(component));
             }
         }
+    }
+
+    /**
+     * Escape MiniMessage tags so they display literally instead of being parsed.
+     * This prevents players without permission from using click/hover/other MiniMessage features.
+     *
+     * @param message The message to escape
+     * @return The message with MiniMessage tags escaped
+     */
+    private String escapeMiniMessageTags(String message) {
+        if (message == null || message.isEmpty()) {
+            return message;
+        }
+
+        // Use Adventure's native escape method to safely handle all tags and prevent bypasses
+        return net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().escapeTags(message);
     }
 }
