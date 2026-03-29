@@ -45,3 +45,7 @@ We only provide support for versions 1.20.4 and above, versions below that shoul
 - `%rexchat_chatcolor_format%` — Returns format (e.g. "&c", "<rainbow>")  
 
 ---
+
+## 📜 License
+
+RexChat is licensed under the **GNU Affero General Public License v3.0**. See the [LICENSE](LICENSE) and [NOTICE](NOTICE) files for details.
