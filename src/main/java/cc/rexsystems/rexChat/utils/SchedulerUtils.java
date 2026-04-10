@@ -1,13 +1,11 @@
 package cc.rexsystems.rexChat.utils;
 
-import cc.rexsystems.rexChat.RexChat;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitScheduler;
 
 /**
- * Utility class for scheduling tasks on the Bukkit scheduler
+ * Utility class for scheduling tasks compatible with Folia
  */
 public class SchedulerUtils {
 
@@ -15,37 +13,30 @@ public class SchedulerUtils {
      * Run a task asynchronously
      */
     public static void runAsync(Plugin plugin, Runnable task) {
-        BukkitScheduler scheduler = Bukkit.getScheduler();
-        scheduler.runTaskAsynchronously(plugin, task);
+        Bukkit.getAsyncScheduler().runNow(plugin, scheduledTask -> task.run());
     }
 
     /**
-     * Run a task for a specific player on the main thread
-     * This ensures thread-safety when interacting with player objects
+     * Run a task for a specific player using the entity scheduler
      */
     public static void runForPlayer(Plugin plugin, Player player, Runnable task) {
         if (player == null || task == null) {
             return;
         }
-        
-        BukkitScheduler scheduler = Bukkit.getScheduler();
-        // Run on main thread to ensure thread-safety
-        scheduler.runTask(plugin, task);
+        player.getScheduler().run(plugin, scheduledTask -> task.run(), null);
     }
 
     /**
-     * Run a task on the main thread
+     * Run a task on the global region thread
      */
     public static void runSync(Plugin plugin, Runnable task) {
-        BukkitScheduler scheduler = Bukkit.getScheduler();
-        scheduler.runTask(plugin, task);
+        Bukkit.getGlobalRegionScheduler().run(plugin, scheduledTask -> task.run());
     }
 
     /**
-     * Run a task later on the main thread
+     * Run a task later on the global region thread
      */
     public static void runLater(Plugin plugin, Runnable task, long delayTicks) {
-        BukkitScheduler scheduler = Bukkit.getScheduler();
-        scheduler.runTaskLater(plugin, task, delayTicks);
+        Bukkit.getGlobalRegionScheduler().runDelayed(plugin, scheduledTask -> task.run(), delayTicks);
     }
 }
