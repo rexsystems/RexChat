@@ -1,11 +1,11 @@
 name: RexChat
 version: '${project.version}'
-main: cc.rexsystems.rexChat.RexChat
+main: me.rexsystems.rexChat.RexChat
 api-version: 1.13
 folia-supported: true
 authors: [RexSystems]
 description: A chat management plugin
-website: https://rexsys.top
+website: https://rexsystems.me
 softdepend: [PlaceholderAPI]
 
 commands:

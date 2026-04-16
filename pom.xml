@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cc.rexsystems</groupId>
+    <groupId>me.rexsystems</groupId>
     <artifactId>rexchat</artifactId>
     <version>1.6.3</version>
     <packaging>jar</packaging>
@@ -107,7 +107,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>org.bstats</pattern>
-                                    <shadedPattern>cc.rexsystems.rexChat.libs.bstats</shadedPattern>
+                                    <shadedPattern>me.rexsystems.rexChat.libs.bstats</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
