@@ -13,6 +13,8 @@ import cc.rexsystems.rexChat.papi.RexChatPlaceholders;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.concurrent.TimeUnit;
+
 public final class RexChat extends JavaPlugin {
     private static RexChat instance;
     private ConfigManager configManager;
@@ -86,11 +88,11 @@ public final class RexChat extends JavaPlugin {
             updateChecker.checkForUpdatesAsync();
 
             // Schedule periodic cleanup of expired snapshots/tokens (every 5 minutes)
-            getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            getServer().getAsyncScheduler().runAtFixedRate(this, scheduledTask -> {
                 if (previewAccessManager != null) previewAccessManager.cleanupExpiredTokens();
                 if (itemSnapshotManager != null) itemSnapshotManager.cleanupExpired();
                 if (inventorySnapshotService != null) inventorySnapshotService.cleanupExpired();
-            }, 6000L, 6000L);
+            }, 300, 300, TimeUnit.SECONDS);
 
             logUtils.info("RexChat has been enabled successfully!");
         } catch (Exception e) {
