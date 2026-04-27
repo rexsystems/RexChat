@@ -164,6 +164,20 @@ public class MentionUtils {
     }
 
     public static String applyHighlight(Player sender, String message, FileConfiguration cfg) {
+        return applyHighlight(sender, message, cfg, "&r");
+    }
+
+    /**
+     * Apply mention highlighting with a custom color to restore after the highlight.
+     * This prevents chat colors from being reset to white after a mention.
+     *
+     * @param sender       the player who sent the message
+     * @param message      the chat message
+     * @param cfg          plugin configuration
+     * @param restoreColor the color code to restore after the mention highlight (e.g. "&a" or "&r")
+     * @return the message with mention highlights applied
+     */
+    public static String applyHighlight(Player sender, String message, FileConfiguration cfg, String restoreColor) {
         if (!isEnabled(cfg)) return message;
         if (message == null || message.isEmpty()) return message;
 
@@ -175,16 +189,17 @@ public class MentionUtils {
             try {
                 // Highlight @Name
                 java.util.regex.Pattern atPat = getAtPattern(name);
-                String replacementAt = java.util.regex.Matcher.quoteReplacement(color + "@" + name + "&r");
+                String replacementAt = java.util.regex.Matcher.quoteReplacement(color + "@" + name + restoreColor);
                 result = atPat.matcher(result).replaceAll(replacementAt);
                 // Highlight plain Name if enabled and not part of a larger word
                 if (byName) {
                     java.util.regex.Pattern pat = getNamePattern(name);
-                    String replacementName = java.util.regex.Matcher.quoteReplacement(color + "@" + name + "&r");
+                    String replacementName = java.util.regex.Matcher.quoteReplacement(color + "@" + name + restoreColor);
                     result = pat.matcher(result).replaceAll(replacementName);
                 }
             } catch (Throwable ignored) { }
         }
         return result;
     }
+
 }

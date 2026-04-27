@@ -54,12 +54,9 @@ public class PaperChatListener implements Listener {
         boolean disableReporting = plugin.getConfigManager().getConfig().getBoolean("chat-reporting.disable", true);
         boolean is119Plus = MessageUtils.isMinecraftVersionAtLeast(1, 19);
         if (disableReporting && is119Plus) {
-            String msg = raw;
-            if (!player.hasPermission("rexchat.chatcolor")) {
-                msg = ColorUtils.stripColors(msg);
-            }
+            // Color stripping and preset application are handled in buildRenderedString
             event.setCancelled(true);
-            formatter.sendFormattedChat(player, msg);
+            formatter.sendFormattedChat(player, raw);
             return;
         }
 

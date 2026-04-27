@@ -183,19 +183,31 @@ public class MessageFormatter {
 
         // Check if player has permission to use colors in chat
         if (!sender.hasPermission("rexchat.chatcolor")) {
-            // No permission: strip ALL color codes completely (legacy, hex with &, hex without &)
+            // No permission for manual color codes: strip them
             message = ColorUtils.stripColors(message);
-        } else {
-            // Has permission: apply preset color if player has one selected
-            me.rexsystems.rexChat.service.ChatColorManager colorManager = plugin.getChatColorManager();
-            if (colorManager != null && colorManager.isEnabled()) {
-                message = colorManager.applyPlayerColor(sender, message);
+        }
+
+        // Apply preset color if player has one selected (independent of manual color permission).
+        // This allows players with only rexchat.chatcolor.<preset> to use equipped presets
+        // without being able to type raw color codes in chat.
+        String playerChatColor = "&r"; // default restore color after mentions
+        me.rexsystems.rexChat.service.ChatColorManager colorManager = plugin.getChatColorManager();
+        if (colorManager != null && colorManager.isEnabled()) {
+            // Resolve the player's chat color format BEFORE applying it, so we can
+            // pass it to mention highlighting to restore after each mention.
+            String colorName = colorManager.getPlayerColor(sender);
+            if (colorName != null) {
+                me.rexsystems.rexChat.service.ChatColorManager.ChatColorPreset preset = colorManager.getPreset(colorName);
+                if (preset != null && sender.hasPermission(preset.permission())) {
+                    playerChatColor = preset.format();
+                }
             }
+            message = colorManager.applyPlayerColor(sender, message);
         }
 
         // Apply emojis (configurable) and mention highlight after stripping user colors
         message = EmojiUtils.apply(sender, message, cfg);
-        message = MentionUtils.applyHighlight(sender, message, cfg);
+        message = MentionUtils.applyHighlight(sender, message, cfg, playerChatColor);
         // NOTE: [item]/[inventory] tokens are now processed via ItemTokenProcessor
         // AFTER Component creation
         // This is required because MiniMessage can't handle legacy colors inside hover
