@@ -48,3 +48,16 @@ permissions:
   rexchat.preview.item:
     description: Open item preview via /rexchat item
     default: true
+
+  rexchat.chat.minimessage:
+    description: Allows using MiniMessage tags (<click>, <hover>, <gradient>, etc.) in chat
+    default: op
+  rexchat.chat.placeholders:
+    description: Allows using PlaceholderAPI placeholders in chat messages
+    default: op
+  rexchat.proximity.bypass:
+    description: Bypass proximity chat limit (see global chat)
+    default: op
+  rexchat.proximity.toggle:
+    description: Toggle between global and local chat mode
+    default: op

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class RexChatCommand extends BaseCommand {
-    private final List<String> subCommands = List.of("reload", "inv", "item", "help", "global", "local");
+    private final List<String> subCommands = List.of("reload", "help", "global", "local");
 
     public RexChatCommand(RexChat plugin) {
         super(plugin);
@@ -21,7 +21,6 @@ public class RexChatCommand extends BaseCommand {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
             @NotNull String label, String[] args) {
         if (args.length < 1) {
-            // Show version info and help message
             String prefix = plugin.getConfigManager().getConfig().getString("messages.prefix", "");
             String version = plugin.getDescription().getVersion();
             String name = plugin.getDescription().getName();
@@ -41,12 +40,10 @@ public class RexChatCommand extends BaseCommand {
 
             plugin.getConfigManager().loadConfigs();
 
-            // Reload chat color presets
             if (plugin.getChatColorManager() != null) {
                 plugin.getChatColorManager().loadPresets();
             }
 
-            // NOTE: Config color conversion DISABLED
             plugin.getCommandManager().loadCommands();
 
             String reloadMsg = plugin.getConfigManager().getConfig()
@@ -55,11 +52,14 @@ public class RexChatCommand extends BaseCommand {
             return true;
         }
 
-        // /rexchat viewinv <id> - view inventory by unique ID (replaces old /rexchat
-        // inv)
+        // /rexchat viewinv <id> - view inventory by unique snapshot ID (triggered by chat click)
         if (args[0].equalsIgnoreCase("viewinv")) {
             if (!(sender instanceof org.bukkit.entity.Player)) {
                 sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!plugin.getConfigManager().getConfig().getBoolean("chat-previews.enabled", true)) {
+                sendMessage(sender, "%rc_prefix%&cChat previews are not enabled.");
                 return true;
             }
             if (args.length < 2) {
@@ -70,7 +70,6 @@ public class RexChatCommand extends BaseCommand {
             org.bukkit.entity.Player viewer = (org.bukkit.entity.Player) sender;
             String invId = args[1];
 
-            // Get inventory from snapshot manager
             me.rexsystems.rexChat.service.InventorySnapshotService.InventorySnapshot snapshot = plugin
                     .getInventorySnapshotService().getSnapshotById(invId);
             if (snapshot == null) {
@@ -79,12 +78,10 @@ public class RexChatCommand extends BaseCommand {
                 return true;
             }
 
-            // Open GUI with stored inventory
             String playerName = plugin.getInventorySnapshotService().getPlayerNameById(invId);
             if (playerName == null)
                 playerName = "Unknown";
 
-            // Parse title with colors (supports both MiniMessage and legacy)
             String titleRaw = plugin.getConfigManager().getConfig().getString(
                     "messages.preview.inventory.title", "&6Inventory: &f{player}");
             titleRaw = titleRaw.replace("{player}", playerName);
@@ -96,14 +93,12 @@ public class RexChatCommand extends BaseCommand {
             org.bukkit.inventory.Inventory gui = org.bukkit.Bukkit.createInventory(
                     new me.rexsystems.rexChat.listener.PreviewGuiListener.PreviewGuiHolder(), 54, title);
 
-            // Copy storage
             org.bukkit.inventory.ItemStack[] storage = snapshot.getStorage();
             for (int i = 0; i < Math.min(storage.length, 36); i++) {
                 if (storage[i] != null)
                     gui.setItem(i, storage[i].clone());
             }
 
-            // Fill separator
             org.bukkit.inventory.ItemStack filler = new org.bukkit.inventory.ItemStack(
                     org.bukkit.Material.GRAY_STAINED_GLASS_PANE);
             org.bukkit.inventory.meta.ItemMeta fm = filler.getItemMeta();
@@ -114,7 +109,6 @@ public class RexChatCommand extends BaseCommand {
             for (int i = 36; i < 45; i++)
                 gui.setItem(i, filler);
 
-            // Armor
             org.bukkit.inventory.ItemStack[] armor = snapshot.getArmor();
             if (armor[0] != null)
                 gui.setItem(45, armor[0].clone());
@@ -131,12 +125,14 @@ public class RexChatCommand extends BaseCommand {
             return true;
         }
 
-        // OLD /rexchat item REMOVED - using /rexchat viewitem <id> instead
-
-        // NEW: /rexchat viewitem <id> - view item by unique ID
+        // /rexchat viewitem <id> - view item by unique snapshot ID (triggered by chat click)
         if (args[0].equalsIgnoreCase("viewitem")) {
             if (!(sender instanceof org.bukkit.entity.Player)) {
                 sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!plugin.getConfigManager().getConfig().getBoolean("chat-previews.enabled", true)) {
+                sendMessage(sender, "%rc_prefix%&cChat previews are not enabled.");
                 return true;
             }
             if (args.length < 2) {
@@ -147,7 +143,6 @@ public class RexChatCommand extends BaseCommand {
             org.bukkit.entity.Player viewer = (org.bukkit.entity.Player) sender;
             String itemId = args[1];
 
-            // Get item from snapshot manager by ID
             org.bukkit.inventory.ItemStack item = plugin.getItemSnapshotManager().getItem(itemId);
             if (item == null || item.getType() == org.bukkit.Material.AIR) {
                 String prefix = plugin.getConfigManager().getConfig().getString("messages.prefix", "");
@@ -155,31 +150,25 @@ public class RexChatCommand extends BaseCommand {
                 return true;
             }
 
-            // Get player name for title
             String playerName = plugin.getItemSnapshotManager().getPlayerName(itemId);
             if (playerName == null)
                 playerName = "Unknown";
 
-            // Parse title with colors (supports both MiniMessage and legacy)
             String titleRaw = plugin.getConfigManager().getConfig().getString(
                     "messages.preview.item.title", "&6Item: &f{player}");
             titleRaw = titleRaw.replace("{player}", playerName);
-            // Convert to Component then to legacy string for inventory title
             net.kyori.adventure.text.Component titleComp = me.rexsystems.rexChat.utils.ColorUtils
                     .parseComponent(titleRaw);
             String title = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
                     .serialize(titleComp);
 
-            // Create DROPPER inventory
             org.bukkit.inventory.Inventory gui = org.bukkit.Bukkit.createInventory(
                     new me.rexsystems.rexChat.listener.PreviewGuiListener.PreviewGuiHolder(),
                     org.bukkit.event.inventory.InventoryType.DROPPER,
                     title);
 
-            // Put item in center (slot 4)
             gui.setItem(4, item);
 
-            // Add filler around the item
             org.bukkit.inventory.ItemStack filler = new org.bukkit.inventory.ItemStack(
                     org.bukkit.Material.GRAY_STAINED_GLASS_PANE);
             org.bukkit.inventory.meta.ItemMeta fm = filler.getItemMeta();
@@ -208,19 +197,22 @@ public class RexChatCommand extends BaseCommand {
                 sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
                 return true;
             }
-            if (!hasPermission(sender, "rexchat.proximity.toggle")) {
+            if (!plugin.getConfigManager().getConfig().getBoolean("chat-management.proximity.enabled", false)) {
+                sendMessage(sender, "%rc_prefix%&cProximity chat is not enabled.");
+                return true;
+            }
+            if (!hasPermission(sender, "proximity.toggle")) {
                 return true;
             }
 
             org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
             String uuid = player.getUniqueId().toString();
-            
-            // Set global mode in data
+
             plugin.getDataManager().getData().set("proximity-bypass." + uuid, true);
             plugin.getDataManager().saveData();
-            
+
             String msg = plugin.getConfigManager().getConfig()
-                    .getString("messages.proximity.global-enabled", "%rc_prefix%&aGlobal chat enabled. Everyone will see your messages.");
+                    .getString("chat-management.proximity.global-enabled", "%rc_prefix%&aGlobal chat enabled. Everyone will see your messages.");
             sendMessage(sender, msg);
             return true;
         }
@@ -231,19 +223,22 @@ public class RexChatCommand extends BaseCommand {
                 sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
                 return true;
             }
-            if (!hasPermission(sender, "rexchat.proximity.toggle")) {
+            if (!plugin.getConfigManager().getConfig().getBoolean("chat-management.proximity.enabled", false)) {
+                sendMessage(sender, "%rc_prefix%&cProximity chat is not enabled.");
+                return true;
+            }
+            if (!hasPermission(sender, "proximity.toggle")) {
                 return true;
             }
 
             org.bukkit.entity.Player player = (org.bukkit.entity.Player) sender;
             String uuid = player.getUniqueId().toString();
-            
-            // Remove global mode from data
+
             plugin.getDataManager().getData().set("proximity-bypass." + uuid, null);
             plugin.getDataManager().saveData();
-            
+
             String msg = plugin.getConfigManager().getConfig()
-                    .getString("messages.proximity.local-enabled", "%rc_prefix%&eLocal chat enabled. Only nearby players will see your messages.");
+                    .getString("chat-management.proximity.local-enabled", "%rc_prefix%&eLocal chat enabled. Only nearby players will see your messages.");
             sendMessage(sender, msg);
             return true;
         }
@@ -258,14 +253,13 @@ public class RexChatCommand extends BaseCommand {
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
             @NotNull String alias, String[] args) {
         if (args.length == 1) {
+            boolean proximityEnabled = plugin.getConfigManager().getConfig().getBoolean("chat-management.proximity.enabled", false);
             return subCommands.stream()
+                    .filter(cmd -> {
+                        if (!proximityEnabled && (cmd.equals("global") || cmd.equals("local"))) return false;
+                        return true;
+                    })
                     .filter(cmd -> cmd.toLowerCase().startsWith(args[0].toLowerCase()))
-                    .collect(Collectors.toList());
-        }
-        if (args.length == 2 && ("inv".equalsIgnoreCase(args[0]) || "item".equalsIgnoreCase(args[0]))) {
-            return org.bukkit.Bukkit.getOnlinePlayers().stream()
-                    .map(org.bukkit.entity.Player::getName)
-                    .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
         }
         return new ArrayList<>();
@@ -273,6 +267,7 @@ public class RexChatCommand extends BaseCommand {
 
     private void showHelp(CommandSender sender, String label) {
         String prefix = plugin.getConfigManager().getConfig().getString("messages.prefix", "");
+        boolean proximityEnabled = plugin.getConfigManager().getConfig().getBoolean("chat-management.proximity.enabled", false);
 
         sendMessage(sender, prefix + "&6RexChat Help");
         sendMessage(sender, "");
@@ -281,29 +276,14 @@ public class RexChatCommand extends BaseCommand {
         if (hasPermissionForHelp(sender, "rexchat.admin")) {
             sendMessage(sender, "  &6Admin Commands:");
             sendMessage(sender, "    &e/" + label + " reload &7- Reload plugin configuration");
-            sendMessage(sender, "    &e/" + label + " inv [player] &7- Preview player inventory");
-            sendMessage(sender, "    &e/" + label + " item [player] &7- Preview player's held item");
             sendMessage(sender, "");
         }
 
         // Proximity toggle commands
-        if (hasPermissionForHelp(sender, "rexchat.proximity.toggle")) {
+        if (proximityEnabled && hasPermissionForHelp(sender, "rexchat.proximity.toggle")) {
             sendMessage(sender, "  &6Proximity Commands:");
             sendMessage(sender, "    &e/" + label + " global &7- Enable global chat (everyone sees your messages)");
             sendMessage(sender, "    &e/" + label + " local &7- Enable local chat (only nearby players see your messages)");
-            sendMessage(sender, "");
-        }
-
-        // Preview commands
-        if (hasPermissionForHelp(sender, "rexchat.preview.inv")
-                || hasPermissionForHelp(sender, "rexchat.preview.item")) {
-            sendMessage(sender, "  &6Preview Commands:");
-            if (hasPermissionForHelp(sender, "rexchat.preview.inv")) {
-                sendMessage(sender, "    &e/" + label + " inv [player] &7- Preview player inventory");
-            }
-            if (hasPermissionForHelp(sender, "rexchat.preview.item")) {
-                sendMessage(sender, "    &e/" + label + " item [player] &7- Preview player's held item");
-            }
             sendMessage(sender, "");
         }
 
@@ -321,26 +301,9 @@ public class RexChatCommand extends BaseCommand {
     }
 
     private boolean hasPermissionForHelp(CommandSender sender, String permission) {
-        // Same logic as BaseCommand.hasPermission but without sending error message
         return sender.isOp()
                 || sender.hasPermission(permission)
                 || sender.hasPermission("rexchat.*")
                 || sender.hasPermission("*");
-    }
-
-    private org.bukkit.entity.Player findPlayer(String name) {
-        org.bukkit.entity.Player p = org.bukkit.Bukkit.getPlayerExact(name);
-        if (p != null)
-            return p;
-        String lc = name.toLowerCase();
-        for (org.bukkit.entity.Player op : org.bukkit.Bukkit.getOnlinePlayers()) {
-            if (op.getName().toLowerCase().equals(lc))
-                return op;
-        }
-        for (org.bukkit.entity.Player op : org.bukkit.Bukkit.getOnlinePlayers()) {
-            if (op.getName().toLowerCase().startsWith(lc))
-                return op;
-        }
-        return null;
     }
 }

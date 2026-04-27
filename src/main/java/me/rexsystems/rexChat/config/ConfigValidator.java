@@ -53,6 +53,19 @@ public class ConfigValidator {
         checkString(config, "chat-management.clear.clear-message", "Clear chat message");
         checkInteger(config, "chat-management.clear.lines", "Clear chat lines");
 
+        // Proximity chat validation (optional)
+        if (config.isConfigurationSection("chat-management.proximity")) {
+            if (config.contains("chat-management.proximity.enabled") && !config.isBoolean("chat-management.proximity.enabled")) {
+                errors.add("Invalid chat-management.proximity.enabled (must be boolean)");
+            }
+            if (config.getBoolean("chat-management.proximity.enabled", false)) {
+                if (!config.contains("chat-management.proximity.radius") || !config.isDouble("chat-management.proximity.radius") && !config.isInt("chat-management.proximity.radius")) {
+                    errors.add("Missing or invalid chat-management.proximity.radius (must be a number)");
+                }
+                checkString(config, "chat-management.proximity.bypass-permission", "Proximity bypass permission");
+            }
+        }
+
         // Chat format validation
         if (config.contains("chat-format")) {
             if (!config.isBoolean("chat-format.enabled")) {
