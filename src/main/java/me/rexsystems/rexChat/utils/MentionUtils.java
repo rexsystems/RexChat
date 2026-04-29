@@ -30,7 +30,7 @@ public class MentionUtils {
 
     private static java.util.regex.Pattern getAtPattern(String playerName) {
         return AT_PATTERN_CACHE.computeIfAbsent(playerName, name -> {
-            String regex = "(?i)@" + java.util.regex.Pattern.quote(name);
+            String regex = "(?i)@" + java.util.regex.Pattern.quote(name) + "(?!\\w)";
             return java.util.regex.Pattern.compile(regex);
         });
     }
@@ -52,12 +52,14 @@ public class MentionUtils {
         if (!isEnabled(cfg)) return targets;
         if (rawMessage == null || rawMessage.isEmpty()) return targets;
 
-        String lower = rawMessage.toLowerCase(Locale.ROOT);
         boolean byName = cfg.getBoolean("mention.by-name", true);
         for (Player p : Bukkit.getOnlinePlayers()) {
             String pname = p.getName();
-            String atNeedle = "@" + pname.toLowerCase(Locale.ROOT);
-            boolean matched = lower.contains(atNeedle);
+            boolean matched = false;
+            try {
+                java.util.regex.Pattern atPat = getAtPattern(pname);
+                matched = atPat.matcher(rawMessage).find();
+            } catch (Throwable ignored) { }
             if (!matched && byName) {
                 try {
                     java.util.regex.Pattern pat = getNamePattern(pname);
@@ -184,21 +186,47 @@ public class MentionUtils {
         String color = cfg.getString("mention.color", "&6");
         boolean byName = cfg.getBoolean("mention.by-name", true);
         String result = message;
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        // Sort players by name length descending to prevent partial matches
+        // (e.g. "Rex" matching inside "@RexStar" before "RexStar" is processed)
+        java.util.List<Player> sorted = new java.util.ArrayList<>(Bukkit.getOnlinePlayers());
+        sorted.sort((a, b) -> Integer.compare(b.getName().length(), a.getName().length()));
+
+        // Use placeholders during processing to prevent already-highlighted mentions
+        // from being matched again by shorter name patterns
+        java.util.List<String[]> placeholders = new java.util.ArrayList<>();
+        int placeholderIndex = 0;
+
+        for (Player p : sorted) {
             String name = p.getName();
             try {
                 // Highlight @Name
                 java.util.regex.Pattern atPat = getAtPattern(name);
-                String replacementAt = java.util.regex.Matcher.quoteReplacement(color + "@" + name + restoreColor);
-                result = atPat.matcher(result).replaceAll(replacementAt);
+                boolean hadAtMention = atPat.matcher(result).find();
+                if (hadAtMention) {
+                    String placeholder = "\u0000MENTION" + (placeholderIndex++) + "\u0000";
+                    String highlighted = color + "@" + name + restoreColor;
+                    placeholders.add(new String[]{placeholder, highlighted});
+                    result = atPat.matcher(result).replaceAll(java.util.regex.Matcher.quoteReplacement(placeholder));
+                }
                 // Highlight plain Name if enabled and not part of a larger word
-                if (byName) {
+                // Skip if @Name was already highlighted to avoid double-processing
+                if (byName && !hadAtMention) {
                     java.util.regex.Pattern pat = getNamePattern(name);
-                    String replacementName = java.util.regex.Matcher.quoteReplacement(color + "@" + name + restoreColor);
-                    result = pat.matcher(result).replaceAll(replacementName);
+                    if (pat.matcher(result).find()) {
+                        String placeholder = "\u0000MENTION" + (placeholderIndex++) + "\u0000";
+                        String highlighted = color + "@" + name + restoreColor;
+                        placeholders.add(new String[]{placeholder, highlighted});
+                        result = pat.matcher(result).replaceAll(java.util.regex.Matcher.quoteReplacement(placeholder));
+                    }
                 }
             } catch (Throwable ignored) { }
         }
+
+        // Replace all placeholders with their final highlighted values
+        for (String[] entry : placeholders) {
+            result = result.replace(entry[0], entry[1]);
+        }
+
         return result;
     }
 
