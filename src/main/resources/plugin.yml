@@ -48,6 +48,9 @@ permissions:
   rexchat.preview.item:
     description: Open item preview via /rexchat item
     default: true
+  rexchat.preview.enderchest:
+    description: Open ender chest preview via /rexchat viewec
+    default: true
 
   rexchat.chat.minimessage:
     description: Allows using MiniMessage tags (<click>, <hover>, <gradient>, etc.) in chat
