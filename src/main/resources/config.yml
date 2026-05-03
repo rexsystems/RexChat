@@ -37,6 +37,11 @@ messages:
       hover: "&7Click to view {player}'s inventory"
       label-template: "&7[&fInventory&7]"
       open: "%rc_prefix%&7Opening inventory preview for &6{player}"
+    enderchest:
+      title: "&6Ender Chest: &f{player}"
+      hover: "&7Click to view {player}'s ender chest"
+      label-template: "&7[&5Ender Chest&7]"
+      open: "%rc_prefix%&7Opening ender chest preview for &6{player}"
 
 mention:
   enabled: true
@@ -173,6 +178,7 @@ chat-previews:
   tokens:
     item: ["[item]", "[i]", "{item}", "{i}"]
     inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]
+    enderchest: ["[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}"]
 
 # Chat Management Settings
 chat-management:

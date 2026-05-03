@@ -37,9 +37,14 @@ public final class PreviewTokenUtils {
                 "chat-previews.tokens.inventory",
                 "features.chat-previews.tokens.inventory",
                 "[inventory]", "[inv]", "{inventory}", "{inv}");
+        List<String> ecTokens = getTokensWithFallback(cfg,
+                "chat-previews.tokens.enderchest",
+                "features.chat-previews.tokens.enderchest",
+                "[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
 
         String itemHover = cfg.getString("messages.preview.item.hover", "&7Click to view {player}'s item");
         String invHover = cfg.getString("messages.preview.inventory.hover", "&7Click to view {player}'s inventory");
+        String ecHover = cfg.getString("messages.preview.enderchest.hover", "&7Click to view {player}'s ender chest");
 
         // Remove prefix token in hover (requested), and resolve simple placeholders
         itemHover = (itemHover == null ? "" : itemHover)
@@ -50,14 +55,20 @@ public final class PreviewTokenUtils {
                 .replace("%rc_prefix%", "")
                 .replace("{player}", sender.getName())
                 .replace("{display_name}", sender.getDisplayName());
+        ecHover = (ecHover == null ? "" : ecHover)
+                .replace("%rc_prefix%", "")
+                .replace("{player}", sender.getName())
+                .replace("{display_name}", sender.getDisplayName());
 
         // Apply PAPI after basic replacements
         itemHover = PapiUtils.apply(sender, itemHover);
         invHover = PapiUtils.apply(sender, invHover);
+        ecHover = PapiUtils.apply(sender, ecHover);
 
         // Keep hover text simple/plain (no color codes in hover)
         String itemHoverMini = ColorUtils.stripColors(itemHover);
         String invHoverMini = ColorUtils.stripColors(invHover);
+        String ecHoverMini = ColorUtils.stripColors(ecHover);
 
         // Prepare dynamic labels
         // Build labels with templates (colors configurable via config)
@@ -113,6 +124,21 @@ public final class PreviewTokenUtils {
                 // Use unique ID in command
                 message = replaceTokens(message, invTokens,
                         buildInvWrapperWithId(sender.getName(), invHoverMini, invLabel, invId));
+            }
+        }
+
+        // Wrap ender chest tokens
+        boolean hasEcToken = containsAnyToken(message, ecTokens);
+        if (hasEcToken) {
+            String ecId = plugin.getInventorySnapshotService().storeEnderChestWithId(sender);
+            String ecLabelTemplate = cfg.getString("messages.preview.enderchest.label-template", "&7[&5Ender Chest&7]");
+            String ecLabel = ecLabelTemplate;
+
+            if (legacy) {
+                message = replaceTokens(message, ecTokens, content -> ecLabel);
+            } else {
+                message = replaceTokens(message, ecTokens,
+                        buildEcWrapperWithId(sender.getName(), ecHoverMini, ecLabel, ecId));
             }
         }
 
@@ -222,6 +248,16 @@ public final class PreviewTokenUtils {
      */
     private static TokenWrapper buildInvWrapperWithId(String playerName, String hoverText, String label, String invId) {
         String cmd = "/rexchat viewinv " + invId;
+        String hoverEscaped = escapeForMiniMessage(hoverText);
+        return content -> "<hover:show_text:'" + hoverEscaped + "'><click:run_command:'" + cmd + "'>" + label
+                + "</click></hover>";
+    }
+
+    /**
+     * Build ender chest wrapper with unique ID.
+     */
+    private static TokenWrapper buildEcWrapperWithId(String playerName, String hoverText, String label, String ecId) {
+        String cmd = "/rexchat viewec " + ecId;
         String hoverEscaped = escapeForMiniMessage(hoverText);
         return content -> "<hover:show_text:'" + hoverEscaped + "'><click:run_command:'" + cmd + "'>" + label
                 + "</click></hover>";

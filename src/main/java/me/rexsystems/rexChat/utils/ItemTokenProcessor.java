@@ -31,6 +31,7 @@ public class ItemTokenProcessor {
 
         List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
         List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
+        List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
 
         if (itemTokens.isEmpty()) {
             itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
@@ -38,9 +39,13 @@ public class ItemTokenProcessor {
         if (invTokens.isEmpty()) {
             invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
         }
+        if (ecTokens.isEmpty()) {
+            ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
+        }
 
         boolean hasItem = false;
         boolean hasInv = false;
+        boolean hasEc = false;
 
         for (String token : itemTokens) {
             if (plainLower.contains(token.toLowerCase())) {
@@ -54,8 +59,14 @@ public class ItemTokenProcessor {
                 break;
             }
         }
+        for (String token : ecTokens) {
+            if (plainLower.contains(token.toLowerCase())) {
+                hasEc = true;
+                break;
+            }
+        }
 
-        if (!hasItem && !hasInv) {
+        if (!hasItem && !hasInv && !hasEc) {
             return component;
         }
 
@@ -103,6 +114,27 @@ public class ItemTokenProcessor {
                 component = component.replaceText(TextReplacementConfig.builder()
                         .matchLiteral(token)
                         .replacement(invDisplay)
+                        .build());
+            }
+        }
+
+        if (hasEc) {
+            String ecId = plugin.getInventorySnapshotService().storeEnderChestWithId(player);
+
+            String labelTemplate = cfg.getString("messages.preview.enderchest.label-template",
+                    "&7[&5Ender Chest&7]");
+            Component ecDisplay = ColorUtils.parseComponent(labelTemplate)
+                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                            ColorUtils.parseComponent(cfg.getString("messages.preview.enderchest.hover",
+                                    "&7Click to view {player}'s ender chest")
+                                    .replace("{player}", player.getName()))))
+                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                            "/rexchat viewec " + ecId));
+
+            for (String token : ecTokens) {
+                component = component.replaceText(TextReplacementConfig.builder()
+                        .matchLiteral(token)
+                        .replacement(ecDisplay)
                         .build());
             }
         }

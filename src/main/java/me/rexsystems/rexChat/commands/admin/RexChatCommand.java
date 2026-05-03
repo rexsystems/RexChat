@@ -125,6 +125,56 @@ public class RexChatCommand extends BaseCommand {
             return true;
         }
 
+        // /rexchat viewec <id> - view ender chest by unique snapshot ID (triggered by chat click)
+        if (args[0].equalsIgnoreCase("viewec")) {
+            if (!(sender instanceof org.bukkit.entity.Player)) {
+                sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!plugin.getConfigManager().getConfig().getBoolean("chat-previews.enabled", true)) {
+                sendMessage(sender, "%rc_prefix%&cChat previews are not enabled.");
+                return true;
+            }
+            if (args.length < 2) {
+                sendMessage(sender, "&cUsage: /rexchat viewec <id>");
+                return true;
+            }
+
+            org.bukkit.entity.Player viewer = (org.bukkit.entity.Player) sender;
+            String ecId = args[1];
+
+            org.bukkit.inventory.ItemStack[] ecContents = plugin.getInventorySnapshotService()
+                    .getEnderChestSnapshotById(ecId);
+            if (ecContents == null) {
+                String prefix = plugin.getConfigManager().getConfig().getString("messages.prefix", "");
+                sendMessage(sender, prefix + "&cEnder chest preview has expired or does not exist.");
+                return true;
+            }
+
+            String playerName = plugin.getInventorySnapshotService().getEnderChestPlayerNameById(ecId);
+            if (playerName == null) playerName = "Unknown";
+
+            String titleRaw = plugin.getConfigManager().getConfig().getString(
+                    "messages.preview.enderchest.title", "&6Ender Chest: &f{player}");
+            titleRaw = titleRaw.replace("{player}", playerName);
+            net.kyori.adventure.text.Component titleComp = me.rexsystems.rexChat.utils.ColorUtils
+                    .parseComponent(titleRaw);
+            String title = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+                    .serialize(titleComp);
+
+            // Ender chest is 27 slots (3 rows)
+            org.bukkit.inventory.Inventory gui = org.bukkit.Bukkit.createInventory(
+                    new me.rexsystems.rexChat.listener.PreviewGuiListener.PreviewGuiHolder(), 27, title);
+
+            for (int i = 0; i < Math.min(ecContents.length, 27); i++) {
+                if (ecContents[i] != null)
+                    gui.setItem(i, ecContents[i].clone());
+            }
+
+            viewer.openInventory(gui);
+            return true;
+        }
+
         // /rexchat viewitem <id> - view item by unique snapshot ID (triggered by chat click)
         if (args[0].equalsIgnoreCase("viewitem")) {
             if (!(sender instanceof org.bukkit.entity.Player)) {

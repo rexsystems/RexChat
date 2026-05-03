@@ -25,6 +25,11 @@ public class InventorySnapshotService {
     private static final long EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
     private final Map<String, Long> timestampsById = new ConcurrentHashMap<>();
 
+    // Ender chest snapshots (ID-based)
+    private final Map<String, ItemStack[]> enderChestSnapshotsById = new ConcurrentHashMap<>();
+    private final Map<String, String> enderChestPlayerNameById = new ConcurrentHashMap<>();
+    private final Map<String, Long> enderChestTimestampsById = new ConcurrentHashMap<>();
+
     public InventorySnapshotService(RexChat plugin) {
         this.plugin = plugin;
     }
@@ -88,12 +93,67 @@ public class InventorySnapshotService {
         return playerNameById.get(id);
     }
 
+    /**
+     * Store ender chest snapshot with unique ID.
+     *
+     * @return unique ID for retrieval
+     */
+    public String storeEnderChestWithId(Player player) {
+        if (player == null) return null;
+
+        String id = UUID.randomUUID().toString().substring(0, 8);
+
+        org.bukkit.inventory.Inventory enderChest = player.getEnderChest();
+        ItemStack[] contents = new ItemStack[enderChest.getSize()];
+        for (int i = 0; i < enderChest.getSize(); i++) {
+            ItemStack item = enderChest.getItem(i);
+            contents[i] = item != null ? item.clone() : null;
+        }
+
+        enderChestSnapshotsById.put(id, contents);
+        enderChestPlayerNameById.put(id, player.getName());
+        enderChestTimestampsById.put(id, System.currentTimeMillis());
+
+        cleanupExpired();
+        return id;
+    }
+
+    /**
+     * Get ender chest snapshot by unique ID.
+     */
+    public ItemStack[] getEnderChestSnapshotById(String id) {
+        if (id == null) return null;
+        Long timestamp = enderChestTimestampsById.get(id);
+        if (timestamp == null || System.currentTimeMillis() - timestamp > EXPIRY_MS) {
+            enderChestSnapshotsById.remove(id);
+            enderChestPlayerNameById.remove(id);
+            enderChestTimestampsById.remove(id);
+            return null;
+        }
+        return enderChestSnapshotsById.get(id);
+    }
+
+    /**
+     * Get player name by ender chest snapshot ID.
+     */
+    public String getEnderChestPlayerNameById(String id) {
+        return enderChestPlayerNameById.get(id);
+    }
+
     public void cleanupExpired() {
         long now = System.currentTimeMillis();
         timestampsById.entrySet().removeIf(e -> {
             if (now - e.getValue() > EXPIRY_MS) {
                 snapshotsById.remove(e.getKey());
                 playerNameById.remove(e.getKey());
+                return true;
+            }
+            return false;
+        });
+        enderChestTimestampsById.entrySet().removeIf(e -> {
+            if (now - e.getValue() > EXPIRY_MS) {
+                enderChestSnapshotsById.remove(e.getKey());
+                enderChestPlayerNameById.remove(e.getKey());
                 return true;
             }
             return false;
