@@ -105,7 +105,7 @@ public class ChatColorManager {
     /**
      * Apply the player's preset color to their message.
      * Returns the message with color applied, or original if no preset selected.
-     * IMPORTANT: Does NOT color preview tokens like [item], [i], [inv], [inventory].
+     * IMPORTANT: Does NOT color preview tokens like [item], [i], [inv], [inventory], [ec], [enderchest].
      */
     public String applyPlayerColor(Player player, String message) {
         String colorName = getPlayerColor(player);
@@ -130,6 +130,7 @@ public class ChatColorManager {
             org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfigManager().getConfig();
             java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
             java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
+            java.util.List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
             
             // Default tokens if not configured
             if (itemTokens.isEmpty()) {
@@ -138,11 +139,15 @@ public class ChatColorManager {
             if (invTokens.isEmpty()) {
                 invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
             }
+            if (ecTokens.isEmpty()) {
+                ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
+            }
             
             // Combine all tokens
             java.util.List<String> allTokens = new java.util.ArrayList<>();
             allTokens.addAll(itemTokens);
             allTokens.addAll(invTokens);
+            allTokens.addAll(ecTokens);
             
             // Build regex pattern to match any token (case-insensitive)
             StringBuilder patternBuilder = new StringBuilder("(");

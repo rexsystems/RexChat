@@ -36,8 +36,10 @@ public class EmojiUtils {
                     if (!(aliasObj instanceof String)) continue;
                     String alias = (String) aliasObj;
                     if (alias == null || alias.isEmpty()) continue;
-                    // Simple literal replacement; case-sensitive by default
-                    result = result.replace(alias, replacement);
+                    // Match only when token is surrounded by space/start/end (not part of longer sequence)
+                    String escaped = java.util.regex.Pattern.quote(alias);
+                    String regex = "(?<=^|\\s)" + escaped + "(?=\\s|$)";
+                    result = result.replaceAll(regex, java.util.regex.Matcher.quoteReplacement(replacement));
                 }
             }
 
