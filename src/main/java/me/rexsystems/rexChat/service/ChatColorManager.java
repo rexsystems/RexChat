@@ -131,6 +131,7 @@ public class ChatColorManager {
             java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
             java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
             java.util.List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
+            java.util.List<String> balTokens = cfg.getStringList("chat-previews.tokens.balance");
             
             // Default tokens if not configured
             if (itemTokens.isEmpty()) {
@@ -142,12 +143,16 @@ public class ChatColorManager {
             if (ecTokens.isEmpty()) {
                 ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
             }
+            if (balTokens.isEmpty()) {
+                balTokens = java.util.Arrays.asList("[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}");
+            }
             
             // Combine all tokens
             java.util.List<String> allTokens = new java.util.ArrayList<>();
             allTokens.addAll(itemTokens);
             allTokens.addAll(invTokens);
             allTokens.addAll(ecTokens);
+            allTokens.addAll(balTokens);
             
             // Build regex pattern to match any token (case-insensitive)
             StringBuilder patternBuilder = new StringBuilder("(");

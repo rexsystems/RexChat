@@ -42,6 +42,14 @@ messages:
       hover: "&7Click to view {player}'s ender chest"
       label-template: "&7[&5Ender Chest&7]"
       open: "%rc_prefix%&7Opening ender chest preview for &6{player}"
+    balance:
+      # Label shown in chat in place of [bal]/[balance].
+      # Placeholders: {balance} (formatted), {amount} (raw decimal), {currency}, {player}
+      label-template: "&7[&a{balance}&7]"
+      # Hover text on the balance label
+      hover: "&7Balance of &6{player}&7: &a{balance}"
+      # Shown when Vault Economy is not installed/registered
+      unavailable-label: "&7[&cBalance unavailable&7]"
 
 mention:
   enabled: true
@@ -179,6 +187,8 @@ chat-previews:
     item: ["[item]", "[i]", "{item}", "{i}"]
     inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]
     enderchest: ["[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}"]
+    # Requires Vault + an Economy plugin (EssentialsX, CMI, etc.) to display balance
+    balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
 
 # Chat Management Settings
 chat-management:

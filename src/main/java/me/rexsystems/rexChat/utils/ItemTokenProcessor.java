@@ -32,6 +32,7 @@ public class ItemTokenProcessor {
         List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
         List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
         List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
+        List<String> balTokens = cfg.getStringList("chat-previews.tokens.balance");
 
         if (itemTokens.isEmpty()) {
             itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
@@ -42,10 +43,14 @@ public class ItemTokenProcessor {
         if (ecTokens.isEmpty()) {
             ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
         }
+        if (balTokens.isEmpty()) {
+            balTokens = java.util.Arrays.asList("[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}");
+        }
 
         boolean hasItem = false;
         boolean hasInv = false;
         boolean hasEc = false;
+        boolean hasBal = false;
 
         for (String token : itemTokens) {
             if (plainLower.contains(token.toLowerCase())) {
@@ -65,8 +70,14 @@ public class ItemTokenProcessor {
                 break;
             }
         }
+        for (String token : balTokens) {
+            if (plainLower.contains(token.toLowerCase())) {
+                hasBal = true;
+                break;
+            }
+        }
 
-        if (!hasItem && !hasInv && !hasEc) {
+        if (!hasItem && !hasInv && !hasEc && !hasBal) {
             return component;
         }
 
@@ -135,6 +146,51 @@ public class ItemTokenProcessor {
                 component = component.replaceText(TextReplacementConfig.builder()
                         .matchLiteral(token)
                         .replacement(ecDisplay)
+                        .build());
+            }
+        }
+
+        if (hasBal) {
+            Component balDisplay;
+
+            if (!VaultEconomyUtils.isAvailable()) {
+                // Vault/Economy not present: show an unavailable label
+                String unavailableLabel = cfg.getString("messages.preview.balance.unavailable-label",
+                        "&7[&cBalance unavailable&7]");
+                balDisplay = ColorUtils.parseComponent(unavailableLabel);
+            } else {
+                Double balance = VaultEconomyUtils.getBalance(player);
+                if (balance == null) balance = 0.0;
+
+                String formatted = VaultEconomyUtils.format(balance);
+                String currency = VaultEconomyUtils.currencyNamePlural();
+                if (currency == null) currency = "";
+
+                String labelTemplate = cfg.getString("messages.preview.balance.label-template",
+                        "&7[&a{balance}&7]");
+                String label = labelTemplate
+                        .replace("{balance}", formatted)
+                        .replace("{amount}", String.format(java.util.Locale.US, "%.2f", balance))
+                        .replace("{currency}", currency)
+                        .replace("{player}", player.getName());
+
+                String hoverTemplate = cfg.getString("messages.preview.balance.hover",
+                        "&7Balance of &6{player}&7: &a{balance}");
+                String hover = hoverTemplate
+                        .replace("{balance}", formatted)
+                        .replace("{amount}", String.format(java.util.Locale.US, "%.2f", balance))
+                        .replace("{currency}", currency)
+                        .replace("{player}", player.getName());
+
+                balDisplay = ColorUtils.parseComponent(label)
+                        .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                                ColorUtils.parseComponent(hover)));
+            }
+
+            for (String token : balTokens) {
+                component = component.replaceText(TextReplacementConfig.builder()
+                        .matchLiteral(token)
+                        .replacement(balDisplay)
                         .build());
             }
         }
