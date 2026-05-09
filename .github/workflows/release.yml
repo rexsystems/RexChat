@@ -77,7 +77,7 @@ jobs:
           # ---- GitHub Release ----
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-tag: ${{ steps.version.outputs.tag }}
-          github-generate-changelog: true
+          github-generate-changelog: false
           github-draft: false
           github-prerelease: false
 
@@ -92,6 +92,9 @@ jobs:
           version: ${{ steps.version.outputs.version }}
           version-type: release
           files: ${{ steps.jar.outputs.path }}
+          # Read changelog from CHANGELOG.md (mc-publish picks the section
+          # matching the version being released).
+          changelog-file: CHANGELOG.md
 
           loaders: |
             paper
