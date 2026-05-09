@@ -1,0 +1,92 @@
+name: Nightly Build
+
+on:
+  # Run every night at 02:00 UTC
+  schedule:
+    - cron: '0 2 * * *'
+  # Build on every push to main so the nightly always reflects latest code
+  push:
+    branches: [ main ]
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+
+# Avoid two nightly builds racing each other
+concurrency:
+  group: nightly-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish Nightly
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: maven
+
+      - name: Read project version
+        id: version
+        run: |
+          VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          BUILD_DATE=$(date -u +'%Y-%m-%d')
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Build with Maven
+        run: mvn -B -ntp clean package
+
+      - name: Rename JAR for nightly
+        id: artifact
+        run: |
+          JAR=$(ls target/*.jar | grep -v 'original-' | grep -v 'sources' | grep -v 'javadoc' | head -n 1)
+          NEW_NAME="RexChat-${{ steps.version.outputs.version }}-nightly-${{ steps.version.outputs.short_sha }}.jar"
+          cp "$JAR" "target/$NEW_NAME"
+          echo "jar_path=target/$NEW_NAME" >> "$GITHUB_OUTPUT"
+          echo "jar_name=$NEW_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RexChat-nightly
+          path: ${{ steps.artifact.outputs.jar_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Update 'nightly' tag
+        run: |
+          git tag -f nightly
+          git push -f origin nightly
+
+      - name: Publish nightly pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly Build
+          prerelease: true
+          # Replace assets on every run so the 'nightly' release always has the latest jar
+          files: ${{ steps.artifact.outputs.jar_path }}
+          body: |
+            **Automated nightly build** — not for production use.
+
+            - Version: `${{ steps.version.outputs.version }}`
+            - Commit: `${{ steps.version.outputs.short_sha }}`
+            - Built: `${{ steps.version.outputs.build_date }}` (UTC)
+
+            This release is overwritten on every push to `main` and every nightly run.
+            For stable downloads, use a tagged release instead.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
