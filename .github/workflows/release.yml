@@ -51,14 +51,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Releasing tag=$TAG version=$VERSION"
 
-      - name: Set Maven version from tag
-        run: |
-          mvn -B -ntp versions:set \
-            -DnewVersion=${{ steps.version.outputs.version }} \
-            -DgenerateBackupPoms=false
-
       - name: Build with Maven
-        run: mvn -B -ntp clean package
+        run: |
+          mvn -B -ntp clean package \
+            -Drevision=${{ steps.version.outputs.version }} \
+            --no-transfer-progress
 
       - name: Locate built JAR
         id: jar
