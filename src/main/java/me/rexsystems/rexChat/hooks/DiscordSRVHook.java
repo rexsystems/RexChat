@@ -3,16 +3,23 @@ package me.rexsystems.rexChat.hooks;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.GameChatMessagePreProcessEvent;
+import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 
 import me.rexsystems.rexChat.RexChat;
+import me.rexsystems.rexChat.hooks.image.InventoryImageRenderer;
+import me.rexsystems.rexChat.hooks.image.ItemTextureCache;
 import me.rexsystems.rexChat.utils.VaultEconomyUtils;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -21,10 +28,10 @@ import java.util.regex.Pattern;
 /**
  * Bridge between RexChat chat-preview tokens and DiscordSRV.
  *
- * <p>Subscribes to {@link GameChatMessagePreProcessEvent} which DiscordSRV fires
- * for every chat message it relays. We modify the relayed text in place
- * (replacing tokens with friendly labels) and emit rich embeds for previews to
- * the same Discord channel.
+ * <p>Subscribes to {@link GameChatMessagePreProcessEvent} which DiscordSRV
+ * fires for every chat message it relays. We modify the relayed text in place
+ * (replacing tokens with friendly labels) and push rich embeds + rendered PNG
+ * attachments for inventory/ender-chest previews to the same Discord channel.
  *
  * <p>This avoids double-sends: DiscordSRV's MONITOR listener still picks up
  * Bukkit's chat events even when RexChat cancels them, so RexChat MUST NOT
@@ -34,15 +41,24 @@ import java.util.regex.Pattern;
  * <p>Public methods deliberately use only Bukkit / standard Java types so the
  * class can be referenced (as a nullable field) from elsewhere even when
  * DiscordSRV is not on the classpath. All DiscordSRV / JDA imports stay inside
- * this class so a missing plugin never causes class-loading errors at runtime.
+ * this package so a missing plugin never causes class-loading errors at
+ * runtime.
  */
 public final class DiscordSRVHook {
 
     private final RexChat plugin;
+    private final ItemTextureCache textureCache;
+    private final InventoryImageRenderer renderer;
     private boolean subscribed;
 
     public DiscordSRVHook(RexChat plugin) {
         this.plugin = plugin;
+        FileConfiguration cfg = plugin.getConfigManager().getConfig();
+        String texBase = cfg.getString("chat-discord.images.texture-base-url",
+                ItemTextureCache.DEFAULT_BASE_URL);
+        this.textureCache = new ItemTextureCache(plugin.getDataFolder(), texBase);
+        this.renderer = new InventoryImageRenderer(textureCache);
+
         try {
             DiscordSRV.api.subscribe(this);
             this.subscribed = true;
@@ -83,33 +99,112 @@ public final class DiscordSRVHook {
             TextChannel channel = resolveChannel(event.getChannel(), cfg);
             if (channel == null) return;
 
-            // 3) Emit embeds for any preview tokens present in the original message
+            // 3) [item] preview: rich embed with thumbnail + metadata
             if (cfg.getBoolean("chat-discord.previews.item", true)
                     && containsAnyToken(original, getTokens(cfg, "item",
                             "[item]", "[i]", "{item}", "{i}"))) {
                 ItemStack hand = sender.getInventory().getItemInMainHand();
                 if (hand != null && hand.getType() != org.bukkit.Material.AIR) {
                     MessageEmbed embed = DiscordEmbedFactory.itemEmbed(sender, hand, cfg);
-                    if (embed != null) channel.sendMessageEmbeds(embed).queue(null, t -> {});
+                    if (embed != null) channel.sendMessage("").embed(embed).queue(null, t -> {});
                 }
             }
 
+            // 4) [inv] preview: rendered PNG of player inventory
             if (cfg.getBoolean("chat-discord.previews.inventory", true)
                     && containsAnyToken(original, getTokens(cfg, "inventory",
                             "[inventory]", "[inv]", "{inventory}", "{inv}"))) {
-                MessageEmbed embed = DiscordEmbedFactory.inventoryEmbed(sender, cfg);
-                if (embed != null) channel.sendMessageEmbeds(embed).queue(null, t -> {});
+                sendInventoryImage(channel, sender, cfg);
             }
 
+            // 5) [ec] preview: rendered PNG of ender chest
             if (cfg.getBoolean("chat-discord.previews.enderchest", true)
                     && containsAnyToken(original, getTokens(cfg, "enderchest",
                             "[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}"))) {
-                MessageEmbed embed = DiscordEmbedFactory.enderChestEmbed(sender, cfg);
-                if (embed != null) channel.sendMessageEmbeds(embed).queue(null, t -> {});
+                sendEnderChestImage(channel, sender, cfg);
             }
         } catch (Throwable t) {
             // Never let this throw across the DSRV API boundary
             plugin.getLogUtils().warning("DiscordSRV pre-process handler failed: " + t.getMessage());
+        }
+    }
+
+    // ---------- image-attachment helpers ----------
+
+    private void sendInventoryImage(TextChannel channel, Player sender, FileConfiguration cfg) {
+        try {
+            String title = cfg.getString("chat-discord.embeds.inventory.title", "{player}'s inventory")
+                    .replace("{player}", sender.getName());
+            BufferedImage img = renderer.renderPlayerInventory(sender, title);
+            byte[] png = toPng(img);
+            if (png == null) return;
+
+            String fileName = "inventory-" + sender.getName() + ".png";
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setColor(parseColor(cfg.getString("chat-discord.embeds.inventory.color", "#57F287")))
+                    .setAuthor(sender.getName(), null, headUrl(sender))
+                    .setTitle(title)
+                    .setImage("attachment://" + fileName);
+
+            channel.sendMessage("")
+                    .embed(eb.build())
+                    .addFile(new ByteArrayInputStream(png), fileName)
+                    .queue(null, t -> {});
+        } catch (Throwable t) {
+            plugin.getLogUtils().warning("Failed to render inventory image: " + t.getMessage());
+        }
+    }
+
+    private void sendEnderChestImage(TextChannel channel, Player sender, FileConfiguration cfg) {
+        try {
+            String title = cfg.getString("chat-discord.embeds.enderchest.title", "{player}'s ender chest")
+                    .replace("{player}", sender.getName());
+            ItemStack[] contents = sender.getEnderChest().getContents();
+            BufferedImage img = renderer.renderEnderChest(contents, title);
+            byte[] png = toPng(img);
+            if (png == null) return;
+
+            String fileName = "enderchest-" + sender.getName() + ".png";
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setColor(parseColor(cfg.getString("chat-discord.embeds.enderchest.color", "#9B59B6")))
+                    .setAuthor(sender.getName(), null, headUrl(sender))
+                    .setTitle(title)
+                    .setImage("attachment://" + fileName);
+
+            channel.sendMessage("")
+                    .embed(eb.build())
+                    .addFile(new ByteArrayInputStream(png), fileName)
+                    .queue(null, t -> {});
+        } catch (Throwable t) {
+            plugin.getLogUtils().warning("Failed to render ender chest image: " + t.getMessage());
+        }
+    }
+
+    private static byte[] toPng(BufferedImage img) {
+        if (img == null) return null;
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            ImageIO.write(img, "png", out);
+            return out.toByteArray();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static java.awt.Color parseColor(String hex) {
+        try {
+            if (hex == null) return new java.awt.Color(0x5865F2);
+            String h = hex.startsWith("#") ? hex.substring(1) : hex;
+            return new java.awt.Color(Integer.parseInt(h, 16));
+        } catch (Throwable t) {
+            return new java.awt.Color(0x5865F2);
+        }
+    }
+
+    private static String headUrl(Player p) {
+        try {
+            return "https://mc-heads.net/avatar/" + p.getUniqueId() + "/64";
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -120,13 +215,11 @@ public final class DiscordSRVHook {
             DiscordSRV dsrv = DiscordSRV.getPlugin();
             if (dsrv == null) return null;
 
-            // Prefer the channel DSRV says this message is going to
             if (gameChannel != null && !gameChannel.isEmpty()) {
                 TextChannel c = dsrv.getDestinationTextChannelForGameChannelName(gameChannel);
                 if (c != null) return c;
             }
 
-            // Config override
             String configured = cfg.getString("chat-discord.channel", "");
             if (configured != null && !configured.isEmpty()) {
                 TextChannel c = dsrv.getDestinationTextChannelForGameChannelName(configured);

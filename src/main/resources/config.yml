@@ -216,6 +216,10 @@ chat-discord:
     enderchest:
       title: "{player}'s ender chest"
       color: "#9B59B6"
+  # Item textures used by the rendered inventory / ender chest images.
+  # Files are downloaded once and cached under <plugin folder>/textures/.
+  images:
+    texture-base-url: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/"
 
 # Chat Management Settings
 chat-management:

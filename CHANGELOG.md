@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- DiscordSRV soft-dependency integration: when DiscordSRV is installed, chat messages containing `[item]`, `[inv]`, `[ec]` or `[bal]` tokens are forwarded to the linked Discord channel as the regular chat line **plus** rich embeds for the previews. Items get a thumbnail (configurable URL template, defaults to InventiveTalent's Minecraft asset mirror), durability, enchantments and lore. Inventories and ender chests get aggregated item lists. Balances are inlined directly in the relayed line via Vault Economy.
+- **DiscordSRV — rendered inventory & ender chest images.** When a chat message contains `[inv]` or `[ec]`, RexChat now renders an actual PNG that looks like the in-game GUI (light grey panel, recessed slots, real item textures, Monocraft font for stack counts) and posts it as a Discord attachment. Item textures are downloaded once from the configurable CDN (defaults to InventiveTalent's mirror) and cached under `<plugin folder>/textures/`.
+- Bundled the Monocraft font (v4.2.1) under `resources/fonts/Monocraft.ttf` so counts render with the Minecraft typeface even on servers that don't have a Minecraft-style font installed.
+- `chat-discord.images.texture-base-url` config option to point the renderer at a different texture mirror.
+- DiscordSRV soft-dependency integration: when DiscordSRV is installed, chat messages containing `[item]`, `[inv]`, `[ec]` or `[bal]` tokens are forwarded to the linked Discord channel as the regular chat line **plus** rich embeds for the previews. Items get a thumbnail (configurable URL template, defaults to InventiveTalent's Minecraft asset mirror), durability, enchantments and lore. Balances are inlined directly in the relayed line via Vault Economy.
 - `chat-discord` config section with toggles per preview type, channel selection (DSRV game-channel name, empty = main channel), embed colors and titles.
 
 <!-- Add entries here as you work. They will be moved into the next versioned section on release. -->
