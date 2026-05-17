@@ -91,6 +91,9 @@ public class ChatManager implements Listener {
             me.rexsystems.rexChat.utils.MentionUtils.playMentionEffects(plugin, player, targets);
             event.setCancelled(true);
             formatter.sendFormattedChat(player, msg);
+
+            // DiscordSRV's MONITOR listener still picks up the cancelled event;
+            // token rewriting + embeds happen via DiscordSRVHook's @Subscribe.
             dbg("Formatted legacy sync chat for player=" + player.getName());
         }
     }
@@ -136,6 +139,9 @@ public class ChatManager implements Listener {
             // Cancel vanilla formatting and broadcast our formatted string
             event.setCancelled(true);
             formatter.sendFormattedChat(player, msg);
+
+            // DiscordSRV's MONITOR listener still picks up the cancelled event;
+            // token rewriting + embeds happen via DiscordSRVHook's @Subscribe.
             dbg("Formatted fallback chat for player=" + player.getName());
         }
     }

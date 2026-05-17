@@ -6,7 +6,7 @@ folia-supported: true
 authors: [RexSystems]
 description: A chat management plugin
 website: https://rexsystems.me
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, Vault, DiscordSRV]
 
 commands:
   rexchat:

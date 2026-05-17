@@ -190,6 +190,33 @@ chat-previews:
     # Requires Vault + an Economy plugin (EssentialsX, CMI, etc.) to display balance
     balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
 
+# Discord integration via DiscordSRV (soft-dependency, optional).
+# When DiscordSRV is installed, RexChat forwards chat messages to it manually
+# (because RexChat cancels Bukkit's chat event when chat-reporting.disable is on),
+# and emits rich embeds for [item] / [inv] / [ec] tokens in the linked channel.
+chat-discord:
+  enabled: true
+  # DiscordSRV game-channel name (matches DSRV's `Channels:` map). Empty = use main channel.
+  channel: ""
+  previews:
+    item: true
+    inventory: true
+    enderchest: true
+  embeds:
+    item:
+      title: "{player}'s item"
+      # Color in #RRGGBB hex
+      color: "#5865F2"
+      # Image URL template. {material} is replaced with the lowercased material name.
+      # Default uses InventiveTalent's public Minecraft asset mirror.
+      image-url-template: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/item/{material}.png"
+    inventory:
+      title: "{player}'s inventory"
+      color: "#57F287"
+    enderchest:
+      title: "{player}'s ender chest"
+      color: "#9B59B6"
+
 # Chat Management Settings
 chat-management:
   mute:

@@ -57,10 +57,15 @@ public class PaperChatListener implements Listener {
             // Color stripping and preset application are handled in buildRenderedString
             event.setCancelled(true);
             formatter.sendFormattedChat(player, raw);
+
+            // Note: DiscordSRV's own MONITOR listener still picks up this event
+            // and handles the Discord relay. Token rewriting + embeds happen via
+            // DiscordSRVHook's @Subscribe handler on GameChatMessagePreProcessEvent.
             return;
         }
 
         // Default: Use Paper's renderer to honor chat-format.format
+        // (DiscordSRV's own listener handles the relay since the event isn't cancelled.)
         event.renderer((source, displayName, message, viewer) -> {
             String plain = PlainTextComponentSerializer.plainText().serialize(message);
             return formatter.buildFormattedComponent(source, plain);

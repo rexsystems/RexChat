@@ -30,6 +30,7 @@ public final class RexChat extends JavaPlugin {
     private me.rexsystems.rexChat.service.PreviewAccessManager previewAccessManager;
     private me.rexsystems.rexChat.service.ItemSnapshotManager itemSnapshotManager;
     private me.rexsystems.rexChat.service.ChatColorManager chatColorManager;
+    private me.rexsystems.rexChat.hooks.DiscordSRVHook discordSRVHook;
 
     @Override
     public void onEnable() {
@@ -84,6 +85,18 @@ public final class RexChat extends JavaPlugin {
                 new RexChatPlaceholders(this).register();
                 logUtils.info("PlaceholderAPI expansion registered!");
             }
+
+            // Register DiscordSRV hook if available. Loaded lazily so missing plugin
+            // never causes a class-loading error.
+            if (getServer().getPluginManager().getPlugin("DiscordSRV") != null) {
+                try {
+                    this.discordSRVHook = new me.rexsystems.rexChat.hooks.DiscordSRVHook(this);
+                    logUtils.info("DiscordSRV integration enabled!");
+                } catch (Throwable t) {
+                    logUtils.warning("Failed to enable DiscordSRV integration: " + t.getMessage());
+                    this.discordSRVHook = null;
+                }
+            }
             
             updateChecker.checkForUpdatesAsync();
 
@@ -104,6 +117,13 @@ public final class RexChat extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (discordSRVHook != null) {
+            try {
+                discordSRVHook.shutdown();
+            } catch (Throwable ignored) {
+            }
+            discordSRVHook = null;
+        }
         if (logUtils != null) {
             logUtils.info("RexChat has been disabled!");
         } else {
@@ -157,5 +177,12 @@ public final class RexChat extends JavaPlugin {
 
     public me.rexsystems.rexChat.service.ChatColorManager getChatColorManager() {
         return chatColorManager;
+    }
+
+    /**
+     * @return the DiscordSRV hook, or {@code null} if DiscordSRV is not installed.
+     */
+    public me.rexsystems.rexChat.hooks.DiscordSRVHook getDiscordSRVHook() {
+        return discordSRVHook;
     }
 }
