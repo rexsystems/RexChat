@@ -224,7 +224,7 @@ chat-discord:
   # <plugin folder>/textures/. The renderer appends 'item/' or 'block/' + the
   # material name + '.png' to this base URL.
   images:
-    texture-base-url: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/"
+    texture-base-url: "https://mcasset.cloud/latest/assets/minecraft/textures/"
 
 # Chat Management Settings
 chat-management:

@@ -28,8 +28,17 @@ import java.util.concurrent.ConcurrentMap;
  */
 public final class ItemTextureCache {
 
-    /** Default CDN. Configurable via {@code chat-discord.embeds.item.texture-base-url}. */
+    /**
+     * Default CDN. Uses {@code mcasset.cloud}'s {@code latest} alias which is
+     * Cloudflare-cached and auto-points at the most recent extracted version.
+     * Configurable via {@code chat-discord.images.texture-base-url}.
+     */
     public static final String DEFAULT_BASE_URL =
+            "https://mcasset.cloud/latest/assets/minecraft/textures/";
+
+    /** Old default that pointed at the (empty) {@code master} branch — kept so we
+     *  can silently migrate user configs that still reference it. */
+    private static final String LEGACY_BROKEN_BASE_URL =
             "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/";
 
     private static final BufferedImage MISSING = createMissingTexture();
@@ -42,7 +51,12 @@ public final class ItemTextureCache {
     public ItemTextureCache(File pluginDataFolder, String baseUrl) {
         this.cacheDir = new File(pluginDataFolder, "textures");
         if (!cacheDir.exists()) cacheDir.mkdirs();
-        this.baseUrl = baseUrl == null || baseUrl.isEmpty() ? DEFAULT_BASE_URL : baseUrl;
+        // Migrate the broken master-branch default that earlier builds shipped
+        if (baseUrl == null || baseUrl.isEmpty() || baseUrl.equals(LEGACY_BROKEN_BASE_URL)) {
+            this.baseUrl = DEFAULT_BASE_URL;
+        } else {
+            this.baseUrl = baseUrl;
+        }
     }
 
     /**
