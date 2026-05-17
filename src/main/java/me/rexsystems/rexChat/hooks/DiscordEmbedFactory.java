@@ -96,10 +96,26 @@ final class DiscordEmbedFactory {
             }
         }
 
-        // Item icon
-        String urlTpl = cfg.getString("chat-discord.embeds.item.image-url-template",
-                "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/item/{material}.png");
-        String url = urlTpl.replace("{material}", item.getType().name().toLowerCase());
+        // Item icon. Pick the correct sub-path:
+        //   blocks (e.g. acacia_leaves, dirt, oak_planks) live under /block/
+        //   items  (e.g. diamond_sword, iron_ingot)        live under /item/
+        // The configured template can use {type} (resolved to 'item' or 'block')
+        // and {material}. The legacy template that hard-coded /item/ still works
+        // for plain items but breaks for blocks, so we now prefer the base URL.
+        String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
+                "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/");
+        String legacyTpl = cfg.getString("chat-discord.embeds.item.image-url-template", null);
+
+        String type = item.getType().isBlock() ? "block" : "item";
+        String materialName = item.getType().name().toLowerCase();
+        String url;
+        if (legacyTpl != null && !legacyTpl.isEmpty() && legacyTpl.contains("{type}")) {
+            url = legacyTpl.replace("{type}", type).replace("{material}", materialName);
+        } else {
+            // Use base URL + correct sub-path (recommended)
+            String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+            url = b + type + "/" + materialName + ".png";
+        }
         eb.setThumbnail(url);
 
         return eb.build();

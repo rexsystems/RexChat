@@ -207,17 +207,22 @@ chat-discord:
       title: "{player}'s item"
       # Color in #RRGGBB hex
       color: "#5865F2"
-      # Image URL template. {material} is replaced with the lowercased material name.
-      # Default uses InventiveTalent's public Minecraft asset mirror.
-      image-url-template: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/item/{material}.png"
+      # Optional URL template. Supports {type} (resolved to 'item' or 'block'
+      # depending on whether the material is a block) and {material} (lowercased
+      # material name, e.g. acacia_leaves). When empty, RexChat builds the URL
+      # from chat-discord.images.texture-base-url + the correct sub-path
+      # (recommended, handles both items and blocks correctly).
+      image-url-template: ""
     inventory:
       title: "{player}'s inventory"
       color: "#57F287"
     enderchest:
       title: "{player}'s ender chest"
       color: "#9B59B6"
-  # Item textures used by the rendered inventory / ender chest images.
-  # Files are downloaded once and cached under <plugin folder>/textures/.
+  # Item textures used by the item embed thumbnail and by the rendered inventory
+  # / ender chest images. Files are downloaded once and cached under
+  # <plugin folder>/textures/. The renderer appends 'item/' or 'block/' + the
+  # material name + '.png' to this base URL.
   images:
     texture-base-url: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/"
 
