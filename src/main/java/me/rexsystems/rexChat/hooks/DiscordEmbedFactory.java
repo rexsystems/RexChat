@@ -4,7 +4,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 
 import me.rexsystems.rexChat.utils.VaultEconomyUtils;
-import me.rexsystems.rexChat.hooks.image.ItemTextureCache;
 
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -104,12 +103,7 @@ final class DiscordEmbedFactory {
         // and {material}. The legacy template that hard-coded /item/ still works
         // for plain items but breaks for blocks, so we now prefer the base URL.
         String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
-                ItemTextureCache.DEFAULT_BASE_URL);
-        // Migrate the broken master-branch default that earlier builds shipped
-        if (baseUrl == null || baseUrl.isEmpty() ||
-                "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/".equals(baseUrl)) {
-            baseUrl = ItemTextureCache.DEFAULT_BASE_URL;
-        }
+                "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/");
         String legacyTpl = cfg.getString("chat-discord.embeds.item.image-url-template", null);
 
         String type = item.getType().isBlock() ? "block" : "item";
