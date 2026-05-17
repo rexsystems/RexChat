@@ -18,7 +18,6 @@ import org.bukkit.inventory.ItemStack;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Locale;
@@ -106,7 +105,7 @@ public final class DiscordSRVHook {
                 ItemStack hand = sender.getInventory().getItemInMainHand();
                 if (hand != null && hand.getType() != org.bukkit.Material.AIR) {
                     MessageEmbed embed = DiscordEmbedFactory.itemEmbed(sender, hand, cfg);
-                    if (embed != null) channel.sendMessage("").embed(embed).queue(null, t -> {});
+                    if (embed != null) channel.sendMessageEmbeds(embed).queue(null, t -> {});
                 }
             }
 
@@ -146,9 +145,8 @@ public final class DiscordSRVHook {
                     .setTitle(title)
                     .setImage("attachment://" + fileName);
 
-            channel.sendMessage("")
+            channel.sendFile(png, fileName)
                     .embed(eb.build())
-                    .addFile(new ByteArrayInputStream(png), fileName)
                     .queue(null, t -> {});
         } catch (Throwable t) {
             plugin.getLogUtils().warning("Failed to render inventory image: " + t.getMessage());
@@ -171,9 +169,8 @@ public final class DiscordSRVHook {
                     .setTitle(title)
                     .setImage("attachment://" + fileName);
 
-            channel.sendMessage("")
+            channel.sendFile(png, fileName)
                     .embed(eb.build())
-                    .addFile(new ByteArrayInputStream(png), fileName)
                     .queue(null, t -> {});
         } catch (Throwable t) {
             plugin.getLogUtils().warning("Failed to render ender chest image: " + t.getMessage());
