@@ -13,7 +13,7 @@ import me.rexsystems.rexChat.hooks.discord.PendingPreviewRegistry;
 import me.rexsystems.rexChat.hooks.image.GuiTextureCache;
 import me.rexsystems.rexChat.hooks.image.InventoryImageRenderer;
 import me.rexsystems.rexChat.hooks.image.ItemTextureCache;
-import me.rexsystems.rexChat.hooks.image.PlayerSkinCache;
+import me.rexsystems.rexChat.hooks.image.PlayerBodyRenderer;
 
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -47,7 +47,7 @@ public final class DiscordSRVHook {
     private final RexChat plugin;
     private final ItemTextureCache textureCache;
     private final GuiTextureCache guiCache;
-    private final PlayerSkinCache skinCache;
+    private final PlayerBodyRenderer bodyRenderer;
     private final InventoryImageRenderer renderer;
     private final OutboundChatListener outboundListener;
     private final DiscordJDAListener jdaListener;
@@ -66,8 +66,8 @@ public final class DiscordSRVHook {
         // resolved (so {version} placeholders are honoured exactly once).
         String resolved = textureCache.getBaseUrl();
         this.guiCache = new GuiTextureCache(plugin.getDataFolder(), resolved);
-        this.skinCache = new PlayerSkinCache(plugin.getDataFolder());
-        this.renderer = new InventoryImageRenderer(textureCache, guiCache, skinCache);
+        this.bodyRenderer = new PlayerBodyRenderer(plugin.getDataFolder(), textureCache);
+        this.renderer = new InventoryImageRenderer(textureCache, guiCache, bodyRenderer);
 
         plugin.getLogUtils().info("RexChat texture base URL: " + resolved);
 

@@ -83,17 +83,17 @@ public final class InventoryImageRenderer {
     private final ItemTextureCache itemTextures;
     private final BlockIconRenderer blockIcons;
     private final GuiTextureCache guiTextures;
-    private final PlayerSkinCache skinCache;
+    private final PlayerBodyRenderer bodyRenderer;
     private final Font countFont;
     private final Font titleFont;
 
     public InventoryImageRenderer(ItemTextureCache itemTextures,
                                   GuiTextureCache guiTextures,
-                                  PlayerSkinCache skinCache) {
+                                  PlayerBodyRenderer bodyRenderer) {
         this.itemTextures = itemTextures;
         this.blockIcons = new BlockIconRenderer(itemTextures);
         this.guiTextures = guiTextures;
-        this.skinCache = skinCache;
+        this.bodyRenderer = bodyRenderer;
         Font base = loadFont();
         this.countFont = base.deriveFont((float) (8 * SCALE));
         this.titleFont = base.deriveFont((float) (8 * SCALE));
@@ -128,13 +128,12 @@ public final class InventoryImageRenderer {
                 g.fillRect(0, 0, w, h);
             }
 
-            // 2) Character preview — 2D body sprite from mc-heads.net.
-            // The body sprite is roughly 32×64 (face+body+arms+legs in side view);
-            // we fit by height so it never gets stretched, then centre it inside
-            // the character preview rectangle of the chrome.
+            // 2) Character preview — front-facing 2D body composed from the
+            // player's skin texture with armour overlays. Centred horizontally
+            // inside the chrome's character preview rectangle and fitted by
+            // height so we never distort the proportions.
             try {
-                BufferedImage body = skinCache.getBody(player.getUniqueId(),
-                        PREVIEW_H * SCALE);
+                BufferedImage body = bodyRenderer.render(player, PREVIEW_H * SCALE);
                 if (body != null) {
                     int dh = PREVIEW_H * SCALE;
                     int dw = (int) Math.round(
@@ -244,13 +243,17 @@ public final class InventoryImageRenderer {
 
     /**
      * Draw an item at the given 1×-coordinate slot top-left. The item
-     * texture lands at {@code +1,+1} inside the slot at 16×16 (vanilla).
+     * texture occupies the slot's 16×16 inner area; in MC's standard
+     * inventory.png that area starts exactly AT the slot top-left (the 1-pixel
+     * bevel sits OUTSIDE the slot top-left coords). Drawing items at slot+0
+     * matches the texture pixel-for-pixel; the previous slot+1 inset shifted
+     * everything 1 px down-right of where the slot actually is.
      */
     private void drawItem(Graphics2D g, int slotX1x, int slotY1x, ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return;
 
-        int tx = (slotX1x + 1) * SCALE;
-        int ty = (slotY1x + 1) * SCALE;
+        int tx = slotX1x * SCALE;
+        int ty = slotY1x * SCALE;
         int tw = 16 * SCALE;
         int th = 16 * SCALE;
 
@@ -278,6 +281,13 @@ public final class InventoryImageRenderer {
         }
     }
 
+    /**
+     * Draw vanilla-style durability bar inside the item slot. Geometry +
+     * colour formula match Minecraft's GUI rendering (and the
+     * InteractiveChat-DiscordSRV-Addon) renderer: 13×2 black background at
+     * y=13 of the slot, foreground 1 px high coloured by HSB hue
+     * {@code 125° × percentage}.
+     */
     private static void drawDurabilityBar(Graphics2D g, ItemStack item,
                                           int tx, int ty, int tw, int th) {
         try {
@@ -288,22 +298,25 @@ public final class InventoryImageRenderer {
             int dmg = d.getDamage();
             if (dmg <= 0) return;
 
-            int remaining = max - dmg;
-            float frac = remaining / (float) max;
+            double percentage = Math.max(0.0, Math.min(1.0, (max - dmg) / (double) max));
 
+            // Bar geometry in MC pixels: x=2..15 (width 13), y=13..14 background,
+            // y=13 foreground (1 px tall, top of background).
             int barW   = 13 * SCALE;
-            int barH   = 2 * SCALE;
+            int barH   = 2  * SCALE;
             int barX   = tx + 2 * SCALE;
-            int barY   = ty + th - 4 * SCALE;
-            int fillW  = Math.max(SCALE, Math.round(barW * frac));
+            int barY   = ty + 13 * SCALE;
+            int fillW  = (int) Math.round(barW * percentage);
 
-            // Background (black)
+            // Background rectangle (black).
             g.setColor(DURABILITY_BG);
             g.fillRect(barX, barY, barW, barH);
-            // Foreground colour shifts from green → red as durability drops.
-            int rgb = java.awt.Color.HSBtoRGB(frac / 3f, 1.0f, 1.0f);
+
+            // Foreground colour: hue goes from 0 (red) at 0% through to ~125° at 100%.
+            float hue = (float) (125.0 * percentage / 360.0);
+            int rgb = java.awt.Color.HSBtoRGB(hue, 1.0f, 1.0f);
             g.setColor(new Color(rgb));
-            g.fillRect(barX, barY, fillW, SCALE); // top half is the coloured part
+            g.fillRect(barX, barY, Math.max(0, fillW), SCALE);
         } catch (Throwable ignored) {
         }
     }
@@ -410,7 +423,8 @@ public final class InventoryImageRenderer {
         return out;
     }
 
-    /** Larger durability bar tuned for the big [item] icon. */
+    /** Larger durability bar tuned for the big [item] icon. Same proportions
+     *  as the slot version but scaled to the icon size. */
     private static void drawIconDurabilityBar(Graphics2D g, ItemStack item,
                                               int tx, int ty, int tw, int th) {
         try {
@@ -419,19 +433,23 @@ public final class InventoryImageRenderer {
             int max = item.getType().getMaxDurability();
             if (max <= 0 || !d.hasDamage()) return;
 
-            int remaining = max - d.getDamage();
-            float frac = remaining / (float) max;
-            int barW   = (int) (tw * 0.8);
-            int barH   = Math.max(2, tw / 32);
-            int barX   = tx + (tw - barW) / 2;
-            int barY   = ty + th - barH * 3;
-            int fillW  = Math.max(2, Math.round(barW * frac));
+            double percentage = Math.max(0.0, Math.min(1.0,
+                    (max - d.getDamage()) / (double) max));
+
+            // Geometry mirrors the slot bar: 13/16 of icon width, anchored
+            // 13/16 of icon height from the top so it sits in the lower band.
+            int barW = (int) Math.round(tw * (13.0 / 16.0));
+            int barH = Math.max(2, (int) Math.round(th * (2.0 / 16.0)));
+            int barX = tx + (int) Math.round(tw * (2.0 / 16.0));
+            int barY = ty + (int) Math.round(th * (13.0 / 16.0));
+            int fillW = (int) Math.round(barW * percentage);
 
             g.setColor(DURABILITY_BG);
             g.fillRect(barX, barY, barW, barH);
-            int rgb = java.awt.Color.HSBtoRGB(frac / 3f, 1.0f, 1.0f);
+            float hue = (float) (125.0 * percentage / 360.0);
+            int rgb = java.awt.Color.HSBtoRGB(hue, 1.0f, 1.0f);
             g.setColor(new Color(rgb));
-            g.fillRect(barX, barY, fillW, Math.max(1, barH / 2));
+            g.fillRect(barX, barY, Math.max(0, fillW), Math.max(1, barH / 2));
         } catch (Throwable ignored) {
         }
     }
