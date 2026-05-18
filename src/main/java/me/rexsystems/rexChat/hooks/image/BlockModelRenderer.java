@@ -397,6 +397,11 @@ public final class BlockModelRenderer {
      * (right-to-left). With {@link Mat4#preMultiply} prepending on the LEFT,
      * the call order is the same as the application order: Z first, then Y,
      * then X.
+     *
+     * <p>Mojang's {@code Axis.YP.rotationDegrees} treats positive degrees as
+     * a clockwise rotation when looking down the +Y axis — opposite of the
+     * standard right-hand-rule convention our {@link Mat4#rotateY} uses. So
+     * we negate the Y angle to get the same visual result MC produces.
      */
     private static Mat4 buildGuiMatrix(BlockModel.GuiTransform t) {
         Mat4 m = Mat4.identity();
@@ -404,9 +409,9 @@ public final class BlockModelRenderer {
         m.translate(-8, -8, -8);
         // 2) Scale.
         m.scale(t.scale[0], t.scale[1], t.scale[2]);
-        // 3) Rotate (Z applied first to vertex, then Y, then X — vanilla order).
+        // 3) Rotate (Z applied first to vertex, then Y, then X).
         m.rotateZ(t.rotation[2]);
-        m.rotateY(t.rotation[1]);
+        m.rotateY(-t.rotation[1]);
         m.rotateX(t.rotation[0]);
         // 4) Translate by the configured display offset.
         m.translate(t.translation[0], t.translation[1], t.translation[2]);

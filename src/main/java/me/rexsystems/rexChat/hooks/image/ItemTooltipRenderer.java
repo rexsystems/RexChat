@@ -227,34 +227,25 @@ public final class ItemTooltipRenderer {
     }
 
     private static void paintBackground(Graphics2D g, int w, int h) {
-        // 1-px gap so the dark border ring shows.
+        // Background fills the whole tooltip including the 1-px border area;
+        // the border colours overpaint the very outer edge afterwards. This
+        // gets rid of the stripe of bg-then-empty-then-border the previous
+        // double-inset approach produced.
         g.setColor(BG);
-        int inset = SCALE; // 1 mc pixel
-        g.fillRect(inset, inset, w - inset * 2, h - inset * 2);
+        g.fillRect(0, 0, w, h);
     }
 
-    /** Draw the signature MC tooltip purple double-border. */
+    /** Single-thickness purple border drawn flush with the tooltip edge — much
+     *  closer to the vanilla MC tooltip look (a 1-pixel ring right at the edge,
+     *  not a thick bar pulled inward). */
     private static void paintBorder(Graphics2D g, int w, int h) {
-        int s = SCALE;
-        int inset = BORDER_INSET * s;
-
-        // Outer ring (top-left = bright, bottom-right = dim).
+        int s = SCALE; // 1 mc pixel
         g.setColor(BORDER_TOP);
-        g.fillRect(inset, inset, w - inset * 2, s);                // top
-        g.fillRect(inset, inset, s, h - inset * 2);                // left
+        g.fillRect(0,        0,        w,    s);            // top edge
+        g.fillRect(0,        0,        s,    h);            // left edge
         g.setColor(BORDER_BOT);
-        g.fillRect(inset, h - inset - s, w - inset * 2, s);        // bottom
-        g.fillRect(w - inset - s, inset, s, h - inset * 2);        // right
-
-        // Inner highlight strip (top-bottom = bright→dim gradient look). MC uses
-        // a real vertical gradient on the inner ring; we fake it with a single
-        // mid-tone rectangle since at our scale it's barely visible.
-        Color blend = lerp(BORDER_TOP, BORDER_BOT, 0.5f);
-        g.setColor(blend);
-        g.fillRect(inset + s, inset + s, w - (inset + s) * 2, s);  // top inner
-        g.fillRect(inset + s, h - inset - s * 2, w - (inset + s) * 2, s); // bottom inner
-        g.fillRect(inset + s, inset + s, s, h - (inset + s) * 2);  // left inner
-        g.fillRect(w - inset - s * 2, inset + s, s, h - (inset + s) * 2); // right inner
+        g.fillRect(0,        h - s,    w,    s);            // bottom edge
+        g.fillRect(w - s,    0,        s,    h);            // right edge
     }
 
     private void paintLines(Graphics2D g, List<Line> lines, FontMetrics fm) {

@@ -61,6 +61,10 @@ public final class InventoryImageRenderer {
     private static final int   PREVIEW_Y       = 8;
     private static final int   PREVIEW_W       = 44;
     private static final int   PREVIEW_H       = 60;
+    /** Vertical offset applied when blitting the rendered body so it sits a
+     *  bit lower in the preview rectangle (the head was rubbing against the
+     *  top of the chrome). */
+    private static final int   PREVIEW_BODY_DY = 8;
 
     // ----- Ender chest: cropped from gui/container/shulker_box.png -----
     /** Visible region for a 27-slot container header + 3 rows + bottom border. */
@@ -145,7 +149,7 @@ public final class InventoryImageRenderer {
                             (double) body.getWidth() / body.getHeight() * dh);
                     int previewW = PREVIEW_W * SCALE;
                     int dx = PREVIEW_X * SCALE + Math.max(0, (previewW - dw) / 2);
-                    int dy = PREVIEW_Y * SCALE;
+                    int dy = (PREVIEW_Y + PREVIEW_BODY_DY) * SCALE;
                     drawScaled(g, body, dx, dy, dw, dh);
                 }
             } catch (Throwable ignored) {

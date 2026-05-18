@@ -4,6 +4,7 @@ import me.rexsystems.rexChat.hooks.image.BlockModel;
 import me.rexsystems.rexChat.hooks.image.BlockModelRenderer;
 import me.rexsystems.rexChat.hooks.image.GuiTextureCache;
 import me.rexsystems.rexChat.hooks.image.ItemTextureCache;
+import me.rexsystems.rexChat.hooks.image.PlayerBodyRenderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
@@ -47,6 +48,7 @@ public final class InventoryPreviewTest {
     private static final int SLOT_STRIDE = 18;
     private static final int PREVIEW_X   = 26, PREVIEW_Y   = 8;
     private static final int PREVIEW_W   = 44, PREVIEW_H   = 60;
+    private static final int PREVIEW_BODY_DY = 8;
 
     @Test
     public void buildPreview() throws Exception {
@@ -55,9 +57,12 @@ public final class InventoryPreviewTest {
 
         String base = "https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures/";
         ItemTextureCache itemCache = new ItemTextureCache(outDir, base);
+        itemCache.setDebug(System.out::println);
         GuiTextureCache guiCache = new GuiTextureCache(outDir, base);
         BlockModelRenderer modelRenderer = new BlockModelRenderer(itemCache);
         modelRenderer.setDebug(System.out::println);
+        PlayerBodyRenderer bodyRenderer = new PlayerBodyRenderer(outDir, itemCache);
+        bodyRenderer.setDebug(System.out::println);
 
         Map<String, BufferedImage> blockCache = new LinkedHashMap<>();
 
@@ -80,15 +85,25 @@ public final class InventoryPreviewTest {
                 g.fillRect(0, 0, w, h);
             }
 
-            // 2) Player body from mc-heads.net (UUID overridable via -Drender.uuid=<uuid>).
+            // 2) Player body — use the REAL PlayerBodyRenderer (composed from
+            //    raw skin texture + armour overlays) so the preview matches
+            //    what the plugin produces in [inv]. Test sample armour set:
+            //    diamond helmet + iron chestplate + golden leggings + netherite boots.
             String uuid = System.getProperty("render.uuid", "069a79f4-44e9-4726-a5be-fca90e38aaf5");
-            BufferedImage body = downloadBody(uuid, PREVIEW_H * SCALE);
+            java.util.UUID uuidObj = java.util.UUID.fromString(uuid);
+            BufferedImage body = bodyRenderer.render(
+                    uuidObj,
+                    "diamond_helmet",
+                    "iron_chestplate",
+                    "golden_leggings",
+                    "netherite_boots",
+                    PREVIEW_H * SCALE);
             if (body != null) {
                 int dh = PREVIEW_H * SCALE;
                 int dw = (int) Math.round((double) body.getWidth() / body.getHeight() * dh);
                 int previewW = PREVIEW_W * SCALE;
                 int dx = PREVIEW_X * SCALE + Math.max(0, (previewW - dw) / 2);
-                int dy = PREVIEW_Y * SCALE;
+                int dy = (PREVIEW_Y + PREVIEW_BODY_DY) * SCALE;
                 g.setComposite(AlphaComposite.SrcOver);
                 g.drawImage(body, dx, dy, dw, dh, null);
             }

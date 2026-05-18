@@ -73,27 +73,45 @@ public final class PlayerBodyRenderer {
      */
     public BufferedImage render(Player player, int outputHeight) {
         if (player == null) return null;
-        BufferedImage skin = loadSkin(player.getUniqueId());
+        PlayerInventory inv = player.getInventory();
+        return render(player.getUniqueId(),
+                materialName(inv.getHelmet()),
+                materialName(inv.getChestplate()),
+                materialName(inv.getLeggings()),
+                materialName(inv.getBoots()),
+                outputHeight);
+    }
+
+    /**
+     * UUID-based variant that doesn't need a live {@link Player}. Used by the
+     * offline preview tests; armour is given as raw material names
+     * (e.g. {@code "iron_helmet"}) which is what the underlying overlay
+     * resolver wants anyway.
+     */
+    public BufferedImage render(UUID uuid,
+                                String helmetMat, String chestplateMat,
+                                String leggingsMat, String bootsMat,
+                                int outputHeight) {
+        if (uuid == null) return null;
+        BufferedImage skin = loadSkin(uuid);
         if (skin == null) {
-            debug.accept("body: skin download FAILED for " + player.getName()
-                    + " (" + player.getUniqueId() + "); preview will be skipped");
+            debug.accept("body: skin download FAILED for " + uuid + "; preview will be skipped");
             return null;
         }
-        debug.accept("body: skin loaded for " + player.getName()
+        debug.accept("body: skin loaded for " + uuid
                 + " (" + skin.getWidth() + "x" + skin.getHeight() + ")");
 
         BufferedImage base = renderBaseBody(skin);
-
-        // Overlay armor (helmet → chestplate → leggings → boots; later layers
-        // would otherwise hide earlier ones, but our crops don't overlap).
-        PlayerInventory inv = player.getInventory();
-        overlayArmorPiece(base, inv.getHelmet(),     ArmorSlot.HELMET);
-        overlayArmorPiece(base, inv.getChestplate(), ArmorSlot.CHESTPLATE);
-        overlayArmorPiece(base, inv.getLeggings(),   ArmorSlot.LEGGINGS);
-        overlayArmorPiece(base, inv.getBoots(),      ArmorSlot.BOOTS);
-
-        // Scale to requested output height (nearest-neighbour for crisp pixels).
+        overlayArmorByMaterial(base, helmetMat,     ArmorSlot.HELMET);
+        overlayArmorByMaterial(base, chestplateMat, ArmorSlot.CHESTPLATE);
+        overlayArmorByMaterial(base, leggingsMat,   ArmorSlot.LEGGINGS);
+        overlayArmorByMaterial(base, bootsMat,      ArmorSlot.BOOTS);
         return scaleByHeight(base, outputHeight);
+    }
+
+    private static String materialName(ItemStack stack) {
+        if (stack == null || stack.getType() == Material.AIR) return null;
+        return stack.getType().name().toLowerCase(Locale.ROOT);
     }
 
     // ---------- skin acquisition + caching ----------
@@ -249,9 +267,16 @@ public final class PlayerBodyRenderer {
 
     private void overlayArmorPiece(BufferedImage body, ItemStack item, ArmorSlot slot) {
         if (item == null || item.getType() == Material.AIR) return;
-        List<String> paths = armorTexturePaths(item.getType(), slot.layer);
+        overlayArmorByMaterial(body, item.getType().name().toLowerCase(Locale.ROOT), slot);
+    }
+
+    /** Same as {@link #overlayArmorPiece} but takes the raw material-name
+     *  string. Lets the offline preview tests skip ItemStack entirely. */
+    private void overlayArmorByMaterial(BufferedImage body, String materialName, ArmorSlot slot) {
+        if (materialName == null) return;
+        List<String> paths = armorTexturePaths(materialName, slot.layer);
         if (paths.isEmpty()) {
-            debug.accept("armor: " + item.getType() + " has no resolver — skipped");
+            debug.accept("armor: " + materialName + " has no resolver — skipped");
             return;
         }
 
@@ -266,10 +291,10 @@ public final class PlayerBodyRenderer {
             }
         }
         if (armor == null) {
-            debug.accept("armor: " + item.getType() + " texture not found at any of " + paths);
+            debug.accept("armor: " + materialName + " texture not found at any of " + paths);
             return;
         }
-        debug.accept("armor: " + item.getType() + " using " + hitPath
+        debug.accept("armor: " + materialName + " using " + hitPath
                 + " (" + armor.getWidth() + "x" + armor.getHeight() + ")");
 
         Graphics2D g = body.createGraphics();
@@ -311,6 +336,14 @@ public final class PlayerBodyRenderer {
         }
     }
 
+    /** Old method kept for binary compatibility — delegates to the
+     *  material-name variant. Not currently called from anywhere because
+     *  {@link #render(Player, int)} now extracts the name itself. */
+    @SuppressWarnings("unused")
+    private void overlayArmorPieceLegacy(BufferedImage body, ItemStack item, ArmorSlot slot) {
+        overlayArmorPiece(body, item, slot);
+    }
+
     private static BufferedImage safeSub(BufferedImage img, int x, int y, int w, int h) {
         try {
             if (x < 0 || y < 0 || x + w > img.getWidth() || y + h > img.getHeight()) return null;
@@ -321,18 +354,13 @@ public final class PlayerBodyRenderer {
     }
 
     /**
-     * Map an armour {@link Material} to candidate texture paths under
-     * {@code assets/minecraft/textures/}. Returns the modern (1.21.2+)
-     * path first, then the legacy (≤1.21.1) path so the renderer works
-     * across MC versions without needing per-version config.
-     *
-     * <p>Note that the <em>file</em> names in the new {@code humanoid/} layout
-     * don't always match the Bukkit material name — e.g. {@code GOLDEN_HELMET}
-     * lives at {@code humanoid/gold.png} and {@code TURTLE_HELMET} at
-     * {@code humanoid/turtle_scute.png}. We canonicalise here.
+     * Map an armour material name (e.g. {@code "iron_helmet"}) to candidate
+     * texture paths under {@code assets/minecraft/textures/}. Returns the
+     * modern (1.21.2+) path first, then the legacy (≤1.21.1) path so the
+     * renderer works across MC versions without per-version config.
      */
-    private static List<String> armorTexturePaths(Material mat, int requiredLayer) {
-        String name = mat.name().toLowerCase(Locale.ROOT);
+    private static List<String> armorTexturePaths(String name, int requiredLayer) {
+        if (name == null) return java.util.Collections.emptyList();
         int idx = name.lastIndexOf('_');
         if (idx < 0) return java.util.Collections.emptyList();
         String matName = name.substring(0, idx);
@@ -353,20 +381,17 @@ public final class PlayerBodyRenderer {
             case "netherite":  newName = matName; break;
             default:           return java.util.Collections.emptyList();
         }
-
-        // turtle_scute only ships as humanoid/ (helmet only). Don't try leggings.
         if ("turtle_scute".equals(newName) && layer == 2) {
             return java.util.Collections.emptyList();
         }
-
         if (layer == 2) {
             return Arrays.asList(
-                    "entity/equipment/humanoid_leggings/" + newName,   // 1.21.2+
-                    "models/armor/" + matName + "_layer_2");           // legacy
+                    "entity/equipment/humanoid_leggings/" + newName,
+                    "models/armor/" + matName + "_layer_2");
         } else {
             return Arrays.asList(
-                    "entity/equipment/humanoid/" + newName,            // 1.21.2+
-                    "models/armor/" + matName + "_layer_1");           // legacy
+                    "entity/equipment/humanoid/" + newName,
+                    "models/armor/" + matName + "_layer_1");
         }
     }
 
