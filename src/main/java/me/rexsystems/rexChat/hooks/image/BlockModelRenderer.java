@@ -40,9 +40,15 @@ import java.util.function.Consumer;
 public final class BlockModelRenderer {
 
     /** Output canvas size in pixels. Items historically render to 32 in MC's
-     *  inventory image (16 model pixels × 2). Using 32 gives crisp upscale
-     *  to a 16-slot 4× output. */
-    public static final int OUT_SIZE = 32;
+     *  inventory image, but at our 4× output scale a slot is 64 px so we
+     *  render at 64 to match the slot natively (no further upscale, no
+     *  loss of detail). */
+    public static final int OUT_SIZE = 64;
+
+    /** World-to-screen scale: 1 cube pixel = (OUT_SIZE / 16) screen pixels.
+     *  This is what makes a full-cube block actually fill the canvas instead
+     *  of taking up the centre quarter of it. */
+    private static final double WORLD_SCALE = OUT_SIZE / 16.0;
 
     /** MC GUI face-shading factors keyed by ORIGINAL (pre-rotation) face axis. */
     private static final double SHADE_UP    = 1.00;
@@ -157,8 +163,8 @@ public final class BlockModelRenderer {
             double[][] screen = new double[4][2];
             double avgZ = 0;
             for (int i = 0; i < 4; i++) {
-                screen[i][0] = world3[i][0] + OUT_SIZE / 2.0;
-                screen[i][1] = OUT_SIZE / 2.0 - world3[i][1];
+                screen[i][0] = world3[i][0] * WORLD_SCALE + OUT_SIZE / 2.0;
+                screen[i][1] = OUT_SIZE / 2.0 - world3[i][1] * WORLD_SCALE;
                 avgZ += world3[i][2];
             }
             avgZ /= 4.0;
