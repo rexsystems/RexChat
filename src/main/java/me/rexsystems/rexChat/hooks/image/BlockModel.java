@@ -67,11 +67,15 @@ public final class BlockModel {
     }
 
     /** {@code display.gui} transform: rotation+translation+scale applied to the
-     *  whole model when rendered into an inventory slot. */
+     *  whole model when rendered into an inventory slot. Defaults to identity
+     *  (no rotation, scale 1). The vanilla {@code block/block.json} sets
+     *  {@code [30, 225, 0]} / {@code 0.625} which gets inherited by
+     *  full-cube models; cross / handheld / item models keep this identity
+     *  default and render face-on. */
     public static final class GuiTransform {
-        public double[] rotation    = {30,    225,   0};
-        public double[] translation = { 0,     0,    0};
-        public double[] scale       = { 0.625, 0.625, 0.625};
+        public double[] rotation    = { 0, 0, 0};
+        public double[] translation = { 0, 0, 0};
+        public double[] scale       = { 1, 1, 1};
     }
 
     /** Texture variable map (e.g. {@code "all" -> "block/dirt"}, {@code "side" -> "block/oak_log"}). */
