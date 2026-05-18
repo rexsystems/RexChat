@@ -1,5 +1,6 @@
 package me.rexsystems.rexChat.hooks.image;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 
 import javax.imageio.ImageIO;
@@ -9,34 +10,50 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.net.HttpURLConnection;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Downloads Minecraft item textures from a public CDN once and caches them on
- * disk under {@code <data folder>/textures/} so subsequent renders are fast and
- * offline-capable.
+ * Downloads Minecraft item / block / GUI textures from a public CDN once and
+ * caches them on disk under {@code <data folder>/textures/} so subsequent
+ * renders are fast and offline-capable.
  *
- * <p>Tries the {@code item/} path first, then {@code block/}. If both fail, a
- * {@code MISSING} placeholder image is returned and cached so we don't hammer
- * the CDN for materials that don't have a texture (custom items, structure
- * blocks, air, etc.).
+ * <p>{@link #get(Material)} tries the {@code item/} path first then
+ * {@code block/}. If both fail, a checkerboard {@link #MISSING} placeholder
+ * is returned and cached so we don't hammer the CDN for materials that have
+ * no rendered texture (custom items, structure blocks, air, etc.).
+ *
+ * <p>{@link #getRaw(String)} is the lower-level API used by other renderers
+ * (e.g. {@link BlockIconRenderer}) to grab individual face textures by
+ * explicit path (e.g. {@code "block/oak_log_top"}).
+ *
+ * <h2>Version-aware base URL</h2>
+ * The base URL may contain a literal {@code {version}} placeholder; it is
+ * resolved at construction time to either {@link Bukkit#getMinecraftVersion()}
+ * or, when Bukkit isn't available (e.g. test harness), the
+ * {@link #FALLBACK_VERSION}. So configuring
+ * {@code https://assets.mcasset.cloud/{version}/assets/minecraft/textures/}
+ * automatically targets the running server's MC version and "just works"
+ * across server upgrades.
  */
 public final class ItemTextureCache {
+
+    /** Last-known-good MC version on mcasset.cloud, used when version detection fails. */
+    public static final String FALLBACK_VERSION = "26.1.2";
 
     /**
      * Default CDN. Configurable via
      * {@code chat-discord.images.texture-base-url}. Mirrors what
      * InteractiveChat-DiscordSRV-Addon ships in its bundled resource pack:
-     * the official MC textures for a specific game version, served by
-     * mcasset.cloud's Cloudflare edge.
+     * the official MC textures pulled from mcasset.cloud's Cloudflare edge,
+     * pinned to the running server's MC version via {@code {version}}.
      */
     public static final String DEFAULT_BASE_URL =
-            "https://assets.mcasset.cloud/26.1.2/assets/minecraft/textures/";
+            "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/";
 
     private static final BufferedImage MISSING = createMissingTexture();
     private static final int TIMEOUT_MS = 5_000;
@@ -48,19 +65,39 @@ public final class ItemTextureCache {
     public ItemTextureCache(File pluginDataFolder, String baseUrl) {
         this.cacheDir = new File(pluginDataFolder, "textures");
         if (!cacheDir.exists()) cacheDir.mkdirs();
-        this.baseUrl = baseUrl == null || baseUrl.isEmpty() ? DEFAULT_BASE_URL : baseUrl;
+        String resolved = baseUrl == null || baseUrl.isEmpty() ? DEFAULT_BASE_URL : baseUrl;
+        this.baseUrl = resolveVersion(resolved);
+    }
+
+    /** Replace any {@code {version}} placeholder in the base URL with the running MC version. */
+    private static String resolveVersion(String url) {
+        if (url == null || !url.contains("{version}")) return url;
+        String version = FALLBACK_VERSION;
+        try {
+            String mc = Bukkit.getMinecraftVersion();
+            if (mc != null && !mc.isEmpty()) version = mc;
+        } catch (Throwable ignored) {
+            // Bukkit not available (tests / standalone tools); keep fallback.
+        }
+        return url.replace("{version}", version);
+    }
+
+    /** Visible for diagnostics — what URL we actually hit at runtime. */
+    public String getBaseUrl() {
+        return baseUrl;
     }
 
     /**
-     * Get a 16x16 texture for the given material, downloading + caching as needed.
-     * Returns the {@link #MISSING} placeholder if the material has no known texture.
+     * Get a 16x16 texture for the given material, downloading + caching as
+     * needed. Returns the {@link #MISSING} placeholder if the material has no
+     * known texture under either {@code item/} or {@code block/}.
      */
     public BufferedImage get(Material material) {
         if (material == null || material == Material.AIR) return null;
         String key = material.name().toLowerCase(Locale.ROOT);
 
         BufferedImage cached = memCache.get(key);
-        if (cached != null) return cached == MISSING ? MISSING : cached;
+        if (cached != null) return cached;
 
         // Disk cache
         File diskFile = new File(cacheDir, key + ".png");
@@ -89,11 +126,49 @@ public final class ItemTextureCache {
         return img;
     }
 
+    /**
+     * Lower-level fetch by explicit relative path (e.g.
+     * {@code "block/oak_log_top"} → downloads
+     * {@code <baseUrl>/block/oak_log_top.png}). Returns {@code null} if the
+     * texture doesn't exist on the CDN.
+     */
+    public BufferedImage getRaw(String relativePath) {
+        if (relativePath == null || relativePath.isEmpty()) return null;
+        String key = "raw:" + relativePath;
+        BufferedImage cached = memCache.get(key);
+        if (cached != null) return cached == MISSING ? null : cached;
+
+        File diskFile = new File(cacheDir, "raw_" + relativePath.replace('/', '_') + ".png");
+        if (diskFile.exists() && diskFile.length() > 0) {
+            try {
+                BufferedImage img = ImageIO.read(diskFile);
+                if (img != null) {
+                    memCache.put(key, img);
+                    return img;
+                }
+            } catch (IOException ignored) {
+            }
+        }
+
+        String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        BufferedImage img = tryFetch(b + relativePath + ".png");
+        if (img == null) {
+            memCache.put(key, MISSING);
+            return null;
+        }
+        try {
+            ImageIO.write(img, "png", diskFile);
+        } catch (IOException ignored) {
+        }
+        memCache.put(key, img);
+        return img;
+    }
+
     private BufferedImage downloadTexture(String key) {
         // Try item path, then block path
         String[] paths = { "item/", "block/" };
         for (String p : paths) {
-            BufferedImage img = tryFetch(baseUrl + p + key + ".png");
+            BufferedImage img = tryFetch(baseUrl + (baseUrl.endsWith("/") ? "" : "/") + p + key + ".png");
             if (img != null) return img;
         }
         return null;

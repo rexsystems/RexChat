@@ -101,10 +101,24 @@ public final class OutboundChatListener {
 
                 if (cfg.getBoolean("chat-discord.previews.item", true)
                         && hand != null && hand.getType() != Material.AIR) {
-                    MessageEmbed embed = DiscordEmbedFactory.itemEmbed(sender, hand, cfg);
+                    // Render a 256×256 icon (iso cube for blocks, flat texture
+                    // for items) and attach it so the embed shows it LARGE
+                    // via setImage, instead of as the small corner thumbnail.
+                    int iconPx = cfg.getInt("chat-discord.embeds.item.icon-pixels", 256);
+                    BufferedImage icon = renderer.renderItemIcon(hand, iconPx);
+                    byte[] iconPng = toPng(icon);
+                    String fileName = null;
+                    if (iconPng != null) {
+                        fileName = "item-" + safeName(sender.getName()) + ".png";
+                    }
+                    MessageEmbed embed = DiscordEmbedFactory.itemEmbed(sender, hand, cfg, fileName);
                     if (embed != null) {
                         int id = PendingPreviewRegistry.register(
-                                PendingPreview.item(sender.getName(), headUrl(sender), embed));
+                                fileName != null
+                                    ? PendingPreview.itemWithIcon(sender.getName(),
+                                            headUrl(sender), embed, iconPng, fileName)
+                                    : PendingPreview.item(sender.getName(),
+                                            headUrl(sender), embed));
                         markerSuffix.append(PendingPreviewRegistry.marker(id));
                     }
                 }

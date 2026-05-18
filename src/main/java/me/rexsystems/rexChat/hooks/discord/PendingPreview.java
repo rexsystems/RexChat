@@ -53,6 +53,19 @@ public final class PendingPreview {
         return new PendingPreview(Kind.ITEM, playerName, avatarUrl, embed, null, null);
     }
 
+    /**
+     * Item preview backed by a rendered PNG (used when the embed references
+     * the icon via {@code setImage("attachment://...")} for a large preview
+     * instead of the tiny corner thumbnail).
+     */
+    public static PendingPreview itemWithIcon(String playerName,
+                                              String avatarUrl,
+                                              MessageEmbed embed,
+                                              byte[] png,
+                                              String fileName) {
+        return new PendingPreview(Kind.ITEM, playerName, avatarUrl, embed, png, fileName);
+    }
+
     /** Inventory preview: rich embed referencing an attached PNG. */
     public static PendingPreview inventory(String playerName,
                                            String avatarUrl,

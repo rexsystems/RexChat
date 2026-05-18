@@ -30,7 +30,16 @@ public final class DiscordEmbedFactory {
 
     // ---------- Item ----------
 
-    public static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
+    /**
+     * Build the item-preview embed.
+     *
+     * @param attachmentName name of an attached PNG to use for the LARGE embed
+     *        image (via {@code setImage("attachment://" + name)}). When non-null
+     *        the small {@code setThumbnail} URL is skipped — making the icon
+     *        render at full embed width instead of as a tiny corner thumbnail.
+     */
+    public static MessageEmbed itemEmbed(Player sender, ItemStack item,
+                                         FileConfiguration cfg, String attachmentName) {
         if (item == null || item.getType() == Material.AIR) return null;
 
         String title = cfg.getString("chat-discord.embeds.item.title", "{player}'s item")
@@ -96,29 +105,40 @@ public final class DiscordEmbedFactory {
             }
         }
 
-        // Item icon. Pick the correct sub-path:
-        //   blocks (e.g. acacia_leaves, dirt, oak_planks) live under /block/
-        //   items  (e.g. diamond_sword, iron_ingot)        live under /item/
-        // The configured template can use {type} (resolved to 'item' or 'block')
-        // and {material}. The legacy template that hard-coded /item/ still works
-        // for plain items but breaks for blocks, so we now prefer the base URL.
-        String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
-                "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/");
-        String legacyTpl = cfg.getString("chat-discord.embeds.item.image-url-template", null);
-
-        String type = item.getType().isBlock() ? "block" : "item";
-        String materialName = item.getType().name().toLowerCase();
-        String url;
-        if (legacyTpl != null && !legacyTpl.isEmpty() && legacyTpl.contains("{type}")) {
-            url = legacyTpl.replace("{type}", type).replace("{material}", materialName);
+        // Item icon. We attach a rendered PNG (iso cube for blocks, flat
+        // texture for items) and use setImage so it renders LARGE in the
+        // embed instead of as a tiny thumbnail. The actual rendering happens
+        // in OutboundChatListener (which has the renderer); this method just
+        // wires the embed up to the {@code attachment://} URL when an
+        // {@code attachmentName} is supplied.
+        if (attachmentName != null && !attachmentName.isEmpty()) {
+            eb.setImage("attachment://" + attachmentName);
         } else {
-            // Use base URL + correct sub-path (recommended)
-            String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-            url = b + type + "/" + materialName + ".png";
+            // Legacy fallback: still provide a small thumbnail from the CDN
+            // so embeds aren't completely iconless when no attachment is
+            // available.
+            String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
+                    "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/");
+            String legacyTpl = cfg.getString("chat-discord.embeds.item.image-url-template", null);
+
+            String type = item.getType().isBlock() ? "block" : "item";
+            String materialName = item.getType().name().toLowerCase();
+            String url;
+            if (legacyTpl != null && !legacyTpl.isEmpty() && legacyTpl.contains("{type}")) {
+                url = legacyTpl.replace("{type}", type).replace("{material}", materialName);
+            } else {
+                String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+                url = b + type + "/" + materialName + ".png";
+            }
+            eb.setThumbnail(url);
         }
-        eb.setThumbnail(url);
 
         return eb.build();
+    }
+
+    /** Convenience overload preserving the old signature (no attachment). */
+    public static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
+        return itemEmbed(sender, item, cfg, null);
     }
 
     // ---------- Inventory ----------

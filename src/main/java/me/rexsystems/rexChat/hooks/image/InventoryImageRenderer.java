@@ -81,6 +81,7 @@ public final class InventoryImageRenderer {
     private static final Color DURABILITY_BG   = new Color(0x00, 0x00, 0x00);
 
     private final ItemTextureCache itemTextures;
+    private final BlockIconRenderer blockIcons;
     private final GuiTextureCache guiTextures;
     private final PlayerSkinCache skinCache;
     private final Font countFont;
@@ -90,6 +91,7 @@ public final class InventoryImageRenderer {
                                   GuiTextureCache guiTextures,
                                   PlayerSkinCache skinCache) {
         this.itemTextures = itemTextures;
+        this.blockIcons = new BlockIconRenderer(itemTextures);
         this.guiTextures = guiTextures;
         this.skinCache = skinCache;
         Font base = loadFont();
@@ -252,8 +254,8 @@ public final class InventoryImageRenderer {
         int tw = 16 * SCALE;
         int th = 16 * SCALE;
 
-        BufferedImage tex = itemTextures.get(item.getType());
-        if (tex != null && tex != itemTextures.missing()) {
+        BufferedImage tex = resolveItemIcon(item);
+        if (tex != null) {
             drawScaled(g, tex, tx, ty, tw, th);
         }
 
@@ -350,5 +352,57 @@ public final class InventoryImageRenderer {
         if (item == null) return false;
         ItemMeta m = item.getItemMeta();
         return m != null && m.hasDisplayName();
+    }
+
+    // ---------- shared icon resolution ----------
+
+    /**
+     * Resolve the best icon for an item: an iso cube for blocks (so dirt /
+     * stone / planks etc. read as 3D in chat), or the flat 16×16 item
+     * texture otherwise. Returns {@code null} when nothing usable is
+     * available so the caller can leave the slot empty rather than draw a
+     * giant magenta missing-texture square.
+     */
+    private BufferedImage resolveItemIcon(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return null;
+
+        // 1) Blocks: try the iso cube first.
+        if (item.getType().isBlock()) {
+            BufferedImage iso = blockIcons.iso(item.getType());
+            if (iso != null) return iso;
+        }
+        // 2) Items: flat texture.
+        BufferedImage flat = itemTextures.get(item.getType());
+        if (flat != null && flat != itemTextures.missing()) return flat;
+        return null;
+    }
+
+    /**
+     * Render an item icon at the requested square pixel size, suitable for
+     * use as the {@code setImage} attachment on an embed. Background is
+     * transparent and the icon is centred. Falls back to a flat 16×16 item
+     * texture when an iso cube isn't possible.
+     */
+    public BufferedImage renderItemIcon(ItemStack item, int sizePx) {
+        BufferedImage out = new BufferedImage(sizePx, sizePx, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = out.createGraphics();
+        try {
+            configureGraphics(g);
+            BufferedImage tex = resolveItemIcon(item);
+            if (tex == null) return out; // empty / transparent
+            // Reserve ~8% margin so the icon isn't flush against the embed edge.
+            int margin = sizePx / 12;
+            int side = sizePx - margin * 2;
+            // For non-square source, fit by largest dimension.
+            int srcMax = Math.max(tex.getWidth(), tex.getHeight());
+            int dw = (int) Math.round((double) tex.getWidth()  / srcMax * side);
+            int dh = (int) Math.round((double) tex.getHeight() / srcMax * side);
+            int dx = (sizePx - dw) / 2;
+            int dy = (sizePx - dh) / 2;
+            drawScaled(g, tex, dx, dy, dw, dh);
+        } finally {
+            g.dispose();
+        }
+        return out;
     }
 }

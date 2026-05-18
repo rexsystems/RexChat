@@ -62,9 +62,14 @@ public final class DiscordSRVHook {
                 ItemTextureCache.DEFAULT_BASE_URL);
 
         this.textureCache = new ItemTextureCache(plugin.getDataFolder(), texBase);
-        this.guiCache = new GuiTextureCache(plugin.getDataFolder(), texBase);
+        // GuiTextureCache + BlockIconRenderer use whatever base URL the item cache
+        // resolved (so {version} placeholders are honoured exactly once).
+        String resolved = textureCache.getBaseUrl();
+        this.guiCache = new GuiTextureCache(plugin.getDataFolder(), resolved);
         this.skinCache = new PlayerSkinCache(plugin.getDataFolder());
         this.renderer = new InventoryImageRenderer(textureCache, guiCache, skinCache);
+
+        plugin.getLogUtils().info("RexChat texture base URL: " + resolved);
 
         this.outboundListener = new OutboundChatListener(plugin, renderer);
         this.jdaListener = new DiscordJDAListener(plugin);
