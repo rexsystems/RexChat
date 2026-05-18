@@ -61,6 +61,9 @@ public final class InventoryPreviewTest {
         GuiTextureCache guiCache = new GuiTextureCache(outDir, base);
         BlockModelRenderer modelRenderer = new BlockModelRenderer(itemCache);
         modelRenderer.setDebug(System.out::println);
+        me.rexsystems.rexChat.hooks.image.BlockIconRenderer blockIcons =
+                new me.rexsystems.rexChat.hooks.image.BlockIconRenderer(itemCache);
+        blockIcons.setDebug(System.out::println);
         PlayerBodyRenderer bodyRenderer = new PlayerBodyRenderer(outDir, itemCache);
         bodyRenderer.setDebug(System.out::println);
 
@@ -120,17 +123,18 @@ public final class InventoryPreviewTest {
                     {"OAK_STAIRS", "OAK_SLAB", "STONE_BRICKS", "GLASS", "SAND",
                             "GOLD_BLOCK", "IRON_BLOCK", "REDSTONE_BLOCK", "EMERALD_BLOCK"},
                     {"NETHERITE_BLOCK", "OBSIDIAN", "BIRCH_LOG", "DARK_OAK_PLANKS",
-                            "QUARTZ_BLOCK", null, null, null, null},
+                            "QUARTZ_BLOCK", "OAK_LEAVES", "BIRCH_LEAVES", "SHORT_GRASS",
+                            "VINE"},
                     {null, null, null, null, null, null, null, null, null}
             };
 
             for (int i = 0; i < hotbar.length; i++) {
-                drawBlock(g, modelRenderer, blockCache, itemCache, hotbar[i],
+                drawBlock(g, blockIcons, blockCache, hotbar[i],
                         HOTBAR_X + i * SLOT_STRIDE, HOTBAR_Y);
             }
             for (int row = 0; row < 3; row++) {
                 for (int col = 0; col < 9; col++) {
-                    drawBlock(g, modelRenderer, blockCache, itemCache, mainInv[row][col],
+                    drawBlock(g, blockIcons, blockCache, mainInv[row][col],
                             MAIN_INV_X + col * SLOT_STRIDE,
                             MAIN_INV_Y + row * SLOT_STRIDE);
                 }
@@ -156,19 +160,17 @@ public final class InventoryPreviewTest {
         System.out.println("[preview] wrote " + bigFile.getAbsolutePath());
     }
 
-    /** Render a block by its model name (e.g. "dirt") via the model JSON pipeline. */
-    private void drawBlock(Graphics2D g, BlockModelRenderer modelRenderer,
-                           Map<String, BufferedImage> cache, ItemTextureCache textures,
+    /** Render a block by its model name (e.g. "dirt") using the same
+     *  {@link me.rexsystems.rexChat.hooks.image.BlockIconRenderer} pipeline
+     *  the plugin uses (model JSON path + chest entity fallback + iso fallback). */
+    private void drawBlock(Graphics2D g,
+                           me.rexsystems.rexChat.hooks.image.BlockIconRenderer blockIcons,
+                           Map<String, BufferedImage> cache,
                            String name, int slotX, int slotY) {
         if (name == null) return;
-        BufferedImage tex = cache.computeIfAbsent(name, n -> {
-            BlockModel model = BlockModel.load("block/" + n.toLowerCase(), textures);
-            if (model == null) return null;
-            model.resolveTextureVars();
-            return modelRenderer.render(model);
-        });
+        BufferedImage tex = cache.computeIfAbsent(name, blockIcons::isoByName);
         if (tex == null) {
-            System.out.println("[preview] no model for " + name);
+            System.out.println("[preview] no icon for " + name);
             return;
         }
         int dx = slotX * SCALE;

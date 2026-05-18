@@ -107,6 +107,18 @@ public final class BlockIconRenderer {
         if (name == null) return null;
         String key = name.toLowerCase(java.util.Locale.ROOT);
 
+        // 0) Chests have no flat block model — render directly from the
+        //    chest entity texture sheet via BlockModelRenderer.renderChest.
+        if (key.equals("chest") || key.equals("trapped_chest") || key.equals("ender_chest")) {
+            String variant = key.equals("trapped_chest") ? "trapped"
+                    : key.equals("ender_chest") ? "ender" : "normal";
+            BufferedImage chestImg = modelRenderer.renderChest(variant);
+            if (chestImg != null) {
+                debug.accept("block-iso: " + key + " rendered via chest entity pipeline");
+                return chestImg;
+            }
+        }
+
         // 1) Try the proper model-based renderer first: parse the block's
         //    model JSON (with parent inheritance + texture variable resolution)
         //    and render it at vanilla GUI angles (30° pitch, 225° yaw,
