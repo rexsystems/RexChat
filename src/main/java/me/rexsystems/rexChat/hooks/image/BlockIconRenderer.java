@@ -93,31 +93,38 @@ public final class BlockIconRenderer {
         BufferedImage cached = cache.get(mat);
         if (cached != null) return cached == NONE ? null : cached;
 
+        BufferedImage out = isoByName(mat.name().toLowerCase(java.util.Locale.ROOT));
+        cache.put(mat, out == null ? NONE : out);
+        return out;
+    }
+
+    /**
+     * Same iso pipeline, but keyed by a raw material-name {@link String}.
+     * Lets offline preview tests render blocks without a live Bukkit
+     * {@code Material} registry.
+     */
+    public BufferedImage isoByName(String name) {
+        if (name == null) return null;
+        String key = name.toLowerCase(java.util.Locale.ROOT);
+
         // 1) Try the proper model-based renderer first: parse the block's
         //    model JSON (with parent inheritance + texture variable resolution)
         //    and render it at vanilla GUI angles (30° pitch, 225° yaw,
         //    0.625× scale) with per-face shading. This handles non-cube
         //    blocks (stairs, slabs) and matches what MC itself shows in
         //    the inventory.
-        BufferedImage modelOut = renderViaModel(mat);
-        if (modelOut != null) {
-            cache.put(mat, modelOut);
-            return modelOut;
-        }
+        BufferedImage modelOut = renderViaModel(key);
+        if (modelOut != null) return modelOut;
 
         // 2) Fallback: the simplified 2:1 axonometric projection. Less
         //    accurate but always works for any block whose textures we
         //    can resolve via name conventions.
-        Faces faces = resolveFaces(mat);
+        Faces faces = resolveFacesByName(key);
         if (faces == null) {
-            debug.accept("block-iso: " + mat + " — no face textures resolved, falling back");
-            cache.put(mat, NONE);
+            debug.accept("block-iso: " + key + " — no face textures resolved, falling back");
             return null;
         }
-
-        BufferedImage out = compose(faces);
-        cache.put(mat, out);
-        return out;
+        return compose(faces);
     }
 
     /**
@@ -126,20 +133,21 @@ public final class BlockIconRenderer {
      * no resolvable textures, in which case the caller falls back to the
      * iso compositor.
      */
-    private BufferedImage renderViaModel(Material mat) {
+    private BufferedImage renderViaModel(String key) {
         try {
-            String key = "block/" + mat.name().toLowerCase(java.util.Locale.ROOT);
-            BlockModel model = BlockModel.load(key, textures);
+            String modelKey = "block/" + key;
+            BlockModel model = BlockModel.load(modelKey, textures);
             if (model == null) {
-                debug.accept("block-model: " + mat + " — JSON not found at " + key);
+                debug.accept("block-model: " + key + " — JSON not found at " + modelKey);
                 return null;
             }
             model.resolveTextureVars();
             BufferedImage img = modelRenderer.render(model);
-            if (img != null) debug.accept("block-model: " + mat + " rendered via JSON pipeline");
+            if (img != null) debug.accept("block-model: " + key + " rendered via JSON pipeline");
             return img;
         } catch (Throwable t) {
-            debug.accept("block-model: " + mat + " — failed " + t.getClass().getSimpleName() + " " + t.getMessage());
+            debug.accept("block-model: " + key + " — failed "
+                    + t.getClass().getSimpleName() + " " + t.getMessage());
             return null;
         }
     }
@@ -161,8 +169,8 @@ public final class BlockIconRenderer {
      * progressively from the more specific naming conventions to the catch-all
      * single texture.
      */
-    private Faces resolveFaces(Material mat) {
-        String name = mat.name().toLowerCase(Locale.ROOT);
+    private Faces resolveFacesByName(String name) {
+        if (name == null) return null;
 
         // 1. Logs / wood / stems / hyphae: <name>_top for top + <name> for sides.
         if (name.endsWith("_log") || name.endsWith("_wood")
@@ -170,7 +178,7 @@ public final class BlockIconRenderer {
             BufferedImage top  = textures.getRaw("block/" + name + "_top");
             BufferedImage side = textures.getRaw("block/" + name);
             if (top != null && side != null) {
-                debug.accept("block-iso: " + mat + " resolved as log (_top + sides)");
+                debug.accept("block-iso: " + name + " resolved as log (_top + sides)");
                 return new Faces(top, side, side);
             }
         }
@@ -179,25 +187,25 @@ public final class BlockIconRenderer {
         BufferedImage top  = textures.getRaw("block/" + name + "_top");
         BufferedImage side = textures.getRaw("block/" + name + "_side");
         if (top != null && side != null) {
-            debug.accept("block-iso: " + mat + " resolved as _top + _side");
+            debug.accept("block-iso: " + name + " resolved as _top + _side");
             return new Faces(top, side, side);
         }
 
         // 3. Single texture for all faces (dirt, stone, oak_planks, cobblestone, …)
         BufferedImage all = textures.getRaw("block/" + name);
         if (all != null) {
-            debug.accept("block-iso: " + mat + " resolved as single texture (block/" + name + ")");
+            debug.accept("block-iso: " + name + " resolved as single texture (block/" + name + ")");
             return new Faces(all, all, all);
         }
 
         // 4. Last-ditch: a few hand-rolled aliases for blocks with weird names.
         BufferedImage[] aliased = aliasedFaces(name);
         if (aliased != null) {
-            debug.accept("block-iso: " + mat + " resolved via aliased rule");
+            debug.accept("block-iso: " + name + " resolved via aliased rule");
             return new Faces(aliased[0], aliased[1], aliased[2]);
         }
 
-        debug.accept("block-iso: " + mat + " has no resolver — no faces found");
+        debug.accept("block-iso: " + name + " has no resolver — no faces found");
         return null;
     }
 
@@ -236,75 +244,29 @@ public final class BlockIconRenderer {
                 if (t != null && f != null && s != null) return new BufferedImage[]{t, f, s};
                 return null;
             }
-            // Chests live as entity textures (entity/chest/<variant>.png) with
-            // the lid + body unfolded in a single 64×64 sheet. Build pseudo
-            // 16×16 face textures by stitching the relevant rows together.
+            // Chests would normally need a custom 3D entity model render
+            // (their block JSON is a builtin/entity stub with no elements,
+            // and the chest entity texture is a 64x64 unfolded sheet that
+            // doesn't crop cleanly into 16x16 cube faces). Approximate
+            // visually using the closest matching block textures so the
+            // slot at least shows something recognisable instead of an
+            // empty / garbled tile.
             case "chest":
-                return chestFaces("normal");
-            case "trapped_chest":
-                return chestFaces("trapped");
-            case "ender_chest":
-                return chestFaces("ender");
+            case "trapped_chest": {
+                BufferedImage planks = textures.getRaw("block/oak_planks");
+                if (planks != null) return new BufferedImage[]{planks, planks, planks};
+                return null;
+            }
+            case "ender_chest": {
+                BufferedImage o = textures.getRaw("block/obsidian");
+                if (o != null) return new BufferedImage[]{o, o, o};
+                return null;
+            }
             // Barrels render the actual top/side block textures, so the
             // standard <name>_top + <name>_side path catches them above.
             default:
                 return null;
         }
-    }
-
-    /**
-     * Build top + side face textures for a chest variant from its entity
-     * texture (lid front + body front + lid top regions). The resulting
-     * textures are 16×16 with a 1-px transparent border so they compose
-     * naturally with the iso projection.
-     */
-    private BufferedImage[] chestFaces(String variant) {
-        BufferedImage chest = textures.getRaw("entity/chest/" + variant);
-        if (chest == null) return null;
-
-        // Lid top: x=14, y=0, w=14, h=14.
-        BufferedImage top = padded(safeSub(chest, 14, 0, 14, 14), 16, 16, 1, 1);
-
-        // Side face = lid front (5 px tall) + body front (10 px tall) stacked.
-        BufferedImage face = new BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g = face.createGraphics();
-        try {
-            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                    java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            BufferedImage lidFront = safeSub(chest, 14, 14, 14, 5);
-            if (lidFront != null) g.drawImage(lidFront, 1, 1, null);
-            BufferedImage bodyFront = safeSub(chest, 14, 33, 14, 10);
-            if (bodyFront != null) g.drawImage(bodyFront, 1, 6, null);
-        } finally {
-            g.dispose();
-        }
-
-        if (top == null || face == null) return null;
-        return new BufferedImage[]{top, face, face};
-    }
-
-    private static BufferedImage safeSub(BufferedImage img, int x, int y, int w, int h) {
-        try {
-            if (img == null) return null;
-            if (x < 0 || y < 0 || x + w > img.getWidth() || y + h > img.getHeight()) return null;
-            return img.getSubimage(x, y, w, h);
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    private static BufferedImage padded(BufferedImage src, int w, int h, int dx, int dy) {
-        if (src == null) return null;
-        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g = out.createGraphics();
-        try {
-            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                    java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g.drawImage(src, dx, dy, null);
-        } finally {
-            g.dispose();
-        }
-        return out;
     }
 
     // ---------- compositing ----------

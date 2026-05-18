@@ -1,60 +1,62 @@
 package me.rexsystems.rexChat.hooks.image;
 
-import java.awt.AlphaComposite;
-import java.awt.Color;
+import com.loohp.blockmodelrenderer.blending.BlendingModes;
+import com.loohp.blockmodelrenderer.render.Hexahedron;
+import com.loohp.blockmodelrenderer.render.Model;
+import com.loohp.blockmodelrenderer.render.Point3D;
+import com.loohp.blockmodelrenderer.render.Vector;
+
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * Renders a parsed {@link BlockModel} to a {@link BufferedImage} matching
- * Minecraft's vanilla GUI projection: 30° pitch + 225° yaw + 0.625 scale,
- * with per-axis face shading.
+ * Renders a parsed {@link BlockModel} to a {@link BufferedImage} using the
+ * {@code BlockModelRenderer} 3D software rasteriser, which gives identical
+ * geometry / Z-buffering / lighting to vanilla Minecraft's GUI block view.
  *
- * <p>Implementation strategy:
+ * <p>Pipeline:
  * <ol>
- *   <li>Each {@link BlockModel.Element} contributes 6 axis-aligned quads
- *       (one per face), each with 4 vertices in cube-local space [0..16]³
- *       plus per-vertex UV.</li>
- *   <li>Vertices go through the model's GUI display matrix (translate,
- *       scale, then rotate XYZ Euler). Result is in centred world space.</li>
- *   <li>Orthographic projection: {@code screen.x = world.x},
- *       {@code screen.y = -world.y}; world.z is kept for back-to-front
- *       sorting.</li>
- *   <li>Each quad is sorted by depth and rasterised via
- *       {@link AffineTransform} from its texture rectangle to its screen
- *       parallelogram. Shading is applied via per-face RGB scale to mimic
- *       MC's GUI lighting (top brightest, sides dimmer).</li>
+ *   <li>Each {@link BlockModel.Element} (a sub-cuboid) is converted to a
+ *       {@link Hexahedron} via {@link Hexahedron#fromCorners} with its 6
+ *       per-face textures pre-cropped + UV-rotated.</li>
+ *   <li>All hexahedrons are wrapped in a {@link Model}, then the model is
+ *       transformed by the {@code display.gui} matrix
+ *       (centre on origin → scale → rotate XYZ → translate).</li>
+ *   <li>Lighting: SIDE preset {@code (-0.5, 0.65, 0.9), ambient=0.1, max=1.0}
+ *       (matches vanilla {@code block.json}'s {@code "gui_light": "side"}).</li>
+ *   <li>Rasterised through an {@link AffineTransform} that maps
+ *       1 model-pixel to {@code OUT_SIZE/16} screen pixels.</li>
  * </ol>
- *
- * <p>This handles the vast majority of vanilla blocks (full cubes plus
- * multi-element models like stairs / slabs). Element-local rotation with a
- * 22.5° axis is honoured too.
  */
 public final class BlockModelRenderer {
 
-    /** Output canvas size in pixels. Items historically render to 32 in MC's
-     *  inventory image, but at our 4× output scale a slot is 64 px so we
-     *  render at 64 to match the slot natively (no further upscale, no
-     *  loss of detail). */
+    /** Output canvas size in pixels. 64 = 4× MC slot scale, fills the slot 1:1. */
     public static final int OUT_SIZE = 64;
 
-    /** World-to-screen scale: 1 cube pixel = (OUT_SIZE / 16) screen pixels.
-     *  This is what makes a full-cube block actually fill the canvas instead
-     *  of taking up the centre quarter of it. */
-    private static final double WORLD_SCALE = OUT_SIZE / 16.0;
+    /** Vanilla {@code block.json}'s {@code gui_light:"side"} preset. */
+    private static final Vector LIGHT_DIRECTION = new Vector(-0.5, 0.65, 0.9);
+    private static final double LIGHT_AMBIENT   = 0.1;
+    private static final double LIGHT_MAX       = 1.0;
 
-    /** MC GUI face-shading factors keyed by ORIGINAL (pre-rotation) face axis. */
-    private static final double SHADE_UP    = 1.00;
-    private static final double SHADE_DOWN  = 0.50;
-    private static final double SHADE_NS    = 0.80;  // north + south
-    private static final double SHADE_EW    = 0.60;  // east + west
+    /** Shared CPU pool for parallel rasterisation. Daemon threads. */
+    private static final ExecutorService RENDER_POOL = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors()), new ThreadFactory() {
+                private final AtomicInteger seq = new AtomicInteger();
+                @Override public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "RexChat-Render-" + seq.incrementAndGet());
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
 
     private final ItemTextureCache textures;
     private Consumer<String> debug = msg -> {};
@@ -69,79 +71,69 @@ public final class BlockModelRenderer {
 
     /**
      * Render the given parsed + texture-resolved model into a transparent
-     * {@link #OUT_SIZE}×{@link #OUT_SIZE} ARGB image. Returns {@code null} if
-     * the model has no elements (in which case the caller should fall back).
+     * {@link #OUT_SIZE}×{@link #OUT_SIZE} ARGB image. Returns {@code null}
+     * when the model has no elements.
      */
     public BufferedImage render(BlockModel model) {
         if (model == null || model.elements.isEmpty()) return null;
 
-        // Pre-compute the model→world matrix (translation + scale + rotation).
-        Mat4 modelMatrix = buildGuiMatrix(model.guiTransform);
-
-        // 1) Generate every face from every element.
-        List<RenderQuad> quads = new ArrayList<>();
+        List<Hexahedron> hexa = new ArrayList<>();
         for (BlockModel.Element el : model.elements) {
-            collectFaces(el, model, modelMatrix, quads);
+            Hexahedron h = buildHexahedron(el, model);
+            if (h != null) hexa.add(h);
         }
-        if (quads.isEmpty()) return null;
+        if (hexa.isEmpty()) return null;
 
-        // 2) Sort back-to-front (painter's algorithm). Larger world-Z = closer.
-        quads.sort(Comparator.comparingDouble(q -> q.avgDepth));
+        Model m = new Model(hexa);
 
-        // 3) Rasterise.
+        // ---- display.gui transform: centre cube → scale → rotate → translate ----
+        m.translate(-8, -8, -8);
+        m.scale(model.guiTransform.scale[0],
+                model.guiTransform.scale[1],
+                model.guiTransform.scale[2]);
+        m.rotate(model.guiTransform.rotation[0],
+                 model.guiTransform.rotation[1],
+                 model.guiTransform.rotation[2],
+                 false);
+        m.translate(model.guiTransform.translation[0],
+                    model.guiTransform.translation[1],
+                    model.guiTransform.translation[2]);
+
+        // ---- lighting ----
+        m.updateLighting(LIGHT_DIRECTION.clone(), LIGHT_AMBIENT, LIGHT_MAX);
+
+        // ---- rasterise ----
         BufferedImage canvas = new BufferedImage(OUT_SIZE, OUT_SIZE, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = canvas.createGraphics();
+        AffineTransform baseTransform = AffineTransform.getTranslateInstance(
+                OUT_SIZE / 2.0, OUT_SIZE / 2.0);
+        baseTransform.concatenate(AffineTransform.getScaleInstance(
+                OUT_SIZE / 16.0, OUT_SIZE / 16.0));
         try {
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_OFF);
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                    RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            for (RenderQuad q : quads) drawQuad(g, q);
-        } finally {
-            g.dispose();
+            m.render(canvas, true, baseTransform, BlendingModes.NORMAL, RENDER_POOL).join();
+        } catch (Throwable t) {
+            debug.accept("model: render failed " + t.getClass().getSimpleName() + " " + t.getMessage());
+            return null;
         }
         return canvas;
     }
 
-    // ---------- face generation ----------
+    /**
+     * Convert one {@link BlockModel.Element} into a {@link Hexahedron}.
+     * Direction order for {@link Hexahedron#fromCorners} is
+     * {@code [up, down, north, east, south, west]}.
+     */
+    private Hexahedron buildHexahedron(BlockModel.Element el, BlockModel model) {
+        Point3D p1 = new Point3D(el.from[0], el.from[1], el.from[2]);
+        Point3D p2 = new Point3D(el.to[0],   el.to[1],   el.to[2]);
 
-    private static final String[] FACES =
-            { "down", "up", "north", "south", "west", "east" };
-
-    private void collectFaces(BlockModel.Element el, BlockModel model,
-                               Mat4 modelMatrix, List<RenderQuad> out) {
-        double fx = el.from[0], fy = el.from[1], fz = el.from[2];
-        double tx = el.to[0],   ty = el.to[1],   tz = el.to[2];
-
-        // Element-local rotation matrix, if any. Order of operations:
-        //   p_out = T_origin * R * T_-origin * p
-        // → first translate so rotation origin is at world origin, rotate,
-        // then translate back. With preMultiply that's calls in execution
-        // order: T_-origin, R, T_+origin.
-        Mat4 elementRot = null;
-        if (el.rotationAxis != null && el.rotationAngle != 0 && el.rotationOrigin != null) {
-            elementRot = Mat4.identity();
-            elementRot.translate(-el.rotationOrigin[0], -el.rotationOrigin[1], -el.rotationOrigin[2]);
-            switch (el.rotationAxis) {
-                case "x": elementRot.rotateX(el.rotationAngle); break;
-                case "y": elementRot.rotateY(el.rotationAngle); break;
-                case "z": elementRot.rotateZ(el.rotationAngle); break;
-                default:
-            }
-            elementRot.translate(el.rotationOrigin[0], el.rotationOrigin[1], el.rotationOrigin[2]);
-        }
-
-        for (String key : FACES) {
-            BlockModel.Face face = el.faces.get(key);
+        BufferedImage[] images = new BufferedImage[6];
+        String[] dirs = { "up", "down", "north", "east", "south", "west" };
+        for (int i = 0; i < 6; i++) {
+            BlockModel.Face face = el.faces.get(dirs[i]);
             if (face == null) continue;
-
-            double[][] vert3 = faceVertices(key, fx, fy, fz, tx, ty, tz);
-            double[][] uv    = faceUv(key, fx, fy, fz, tx, ty, tz, face.uv);
-
-            // Resolve texture path → image.
             String texPath = model.resolveFaceTexture(face.texture);
             if (texPath == null || texPath.startsWith("#")) {
-                debug.accept("model: unresolved texture " + face.texture + " on face " + key);
+                debug.accept("model: unresolved texture " + face.texture + " on face " + dirs[i]);
                 continue;
             }
             BufferedImage tex = textures.getRaw(texPath);
@@ -150,189 +142,84 @@ public final class BlockModelRenderer {
                 continue;
             }
 
-            // Apply rotation (element-local first, then GUI matrix).
-            double[][] world3 = new double[4][3];
-            for (int i = 0; i < 4; i++) {
-                double[] v = vert3[i].clone();
-                if (elementRot != null) elementRot.transform(v);
-                modelMatrix.transform(v);
-                world3[i] = v;
-            }
-
-            // Project to screen.
-            double[][] screen = new double[4][2];
-            double avgZ = 0;
-            for (int i = 0; i < 4; i++) {
-                screen[i][0] = world3[i][0] * WORLD_SCALE + OUT_SIZE / 2.0;
-                screen[i][1] = OUT_SIZE / 2.0 - world3[i][1] * WORLD_SCALE;
-                avgZ += world3[i][2];
-            }
-            avgZ /= 4.0;
-
-            // Back-face cull: skip if the rotated normal points AWAY from the viewer.
-            // We compute the screen-space cross product instead of a 3D normal
-            // (cheaper + same answer for orthographic projection).
-            double e1x = screen[1][0] - screen[0][0];
-            double e1y = screen[1][1] - screen[0][1];
-            double e2x = screen[3][0] - screen[0][0];
-            double e2y = screen[3][1] - screen[0][1];
-            double cross = e1x * e2y - e1y * e2x;
-            if (cross >= 0) continue; // face is away from viewer
-
-            double shade = shadeFor(key);
-            out.add(new RenderQuad(screen, uv, tex, shade, avgZ, face.rotation));
+            double[] uv = face.uv != null ? face.uv : defaultUv(dirs[i], el.from, el.to);
+            BufferedImage region = cropUv(tex, uv, face.rotation);
+            if (region != null) images[i] = region;
         }
+
+        // Replace any unresolved face with a 1×1 transparent pixel so the
+        // hexahedron still constructs cleanly.
+        for (int i = 0; i < 6; i++) {
+            if (images[i] == null) images[i] = TRANSPARENT_PIXEL;
+        }
+        Hexahedron h = Hexahedron.fromCorners(p1, p2, images);
+
+        // Element-local rotation (stairs / fences / doors / etc.).
+        if (el.rotationAxis != null && el.rotationAngle != 0 && el.rotationOrigin != null) {
+            double rx = "x".equals(el.rotationAxis) ? el.rotationAngle : 0;
+            double ry = "y".equals(el.rotationAxis) ? el.rotationAngle : 0;
+            double rz = "z".equals(el.rotationAxis) ? el.rotationAngle : 0;
+            h.translate(-el.rotationOrigin[0], -el.rotationOrigin[1], -el.rotationOrigin[2]);
+            h.rotate(rx, ry, rz, false);
+            h.translate(el.rotationOrigin[0], el.rotationOrigin[1], el.rotationOrigin[2]);
+        }
+        return h;
     }
 
-    /** Returns the 4 vertices (in CCW order viewed from outside) for a given face. */
-    private static double[][] faceVertices(String face,
-                                           double fx, double fy, double fz,
-                                           double tx, double ty, double tz) {
+    /**
+     * Default UV when the face JSON doesn't specify one. Derived from
+     * {@code from}/{@code to} so trimmed elements still pull the matching
+     * sub-rectangle of the texture.
+     */
+    private static double[] defaultUv(String face, double[] from, double[] to) {
+        double fx = from[0], fy = from[1], fz = from[2];
+        double tx = to[0],   ty = to[1],   tz = to[2];
         switch (face) {
-            case "down":  return new double[][] {{fx, fy, tz}, {tx, fy, tz}, {tx, fy, fz}, {fx, fy, fz}};
-            case "up":    return new double[][] {{fx, ty, fz}, {tx, ty, fz}, {tx, ty, tz}, {fx, ty, tz}};
-            case "north": return new double[][] {{tx, ty, fz}, {fx, ty, fz}, {fx, fy, fz}, {tx, fy, fz}};
-            case "south": return new double[][] {{fx, ty, tz}, {tx, ty, tz}, {tx, fy, tz}, {fx, fy, tz}};
-            case "west":  return new double[][] {{fx, ty, fz}, {fx, ty, tz}, {fx, fy, tz}, {fx, fy, fz}};
-            case "east":  return new double[][] {{tx, ty, tz}, {tx, ty, fz}, {tx, fy, fz}, {tx, fy, tz}};
-            default: return null;
+            case "down":  return new double[] {fx,       16 - tz, tx,       16 - fz};
+            case "up":    return new double[] {fx,       fz,      tx,       tz};
+            case "north": return new double[] {16 - tx,  16 - ty, 16 - fx,  16 - fy};
+            case "south": return new double[] {fx,       16 - ty, tx,       16 - fy};
+            case "west":  return new double[] {fz,       16 - ty, tz,       16 - fy};
+            case "east":  return new double[] {16 - tz,  16 - ty, 16 - fz,  16 - fy};
+            default:      return new double[] {0, 0, 16, 16};
         }
     }
 
     /**
-     * UV rectangle for the face, in source-texture pixel coordinates within
-     * a 16×16 unit space. Custom UVs from the model JSON override; otherwise
-     * derive from the element's from/to so trimmed elements still sample
-     * the right portion of the texture.
+     * Crop the given texture to the UV rectangle (in 16-unit texture space)
+     * and rotate it by 0/90/180/270 degrees clockwise. Returns an ARGB image
+     * because the BMR raster expects {@code DataBufferInt}.
      */
-    private static double[][] faceUv(String face,
-                                     double fx, double fy, double fz,
-                                     double tx, double ty, double tz,
-                                     double[] uvOverride) {
-        double u1, v1, u2, v2;
-        if (uvOverride != null && uvOverride.length >= 4) {
-            u1 = uvOverride[0]; v1 = uvOverride[1];
-            u2 = uvOverride[2]; v2 = uvOverride[3];
-        } else {
-            switch (face) {
-                case "down":  u1 = fx;       v1 = 16 - tz; u2 = tx;       v2 = 16 - fz; break;
-                case "up":    u1 = fx;       v1 = fz;      u2 = tx;       v2 = tz;      break;
-                case "north": u1 = 16 - tx;  v1 = 16 - ty; u2 = 16 - fx;  v2 = 16 - fy; break;
-                case "south": u1 = fx;       v1 = 16 - ty; u2 = tx;       v2 = 16 - fy; break;
-                case "west":  u1 = fz;       v1 = 16 - ty; u2 = tz;       v2 = 16 - fy; break;
-                case "east":  u1 = 16 - tz;  v1 = 16 - ty; u2 = 16 - fz;  v2 = 16 - fy; break;
-                default: u1 = 0; v1 = 0; u2 = 16; v2 = 16;
-            }
-        }
-        return new double[][] {{u1, v1}, {u2, v1}, {u2, v2}, {u1, v2}};
-    }
-
-    private static double shadeFor(String face) {
-        switch (face) {
-            case "up":    return SHADE_UP;
-            case "down":  return SHADE_DOWN;
-            case "north":
-            case "south": return SHADE_NS;
-            case "east":
-            case "west":  return SHADE_EW;
-            default:      return 1.0;
-        }
-    }
-
-    // ---------- rasterisation ----------
-
-    /**
-     * A single ready-to-rasterise face: 4 screen-space vertices (in CCW
-     * order), 4 UV coordinates into {@link #texture}, an {@link #avgDepth}
-     * for back-to-front sort, and a {@link #shade} factor 0..1 applied at
-     * draw time.
-     */
-    private static final class RenderQuad {
-        final double[][] screen;
-        final double[][] uv;
-        final BufferedImage texture;
-        final double shade;
-        final double avgDepth;
-        final int textureRotation;
-
-        RenderQuad(double[][] s, double[][] u, BufferedImage t, double sh, double d, int rot) {
-            screen = s; uv = u; texture = t; shade = sh; avgDepth = d; textureRotation = rot;
-        }
-    }
-
-    private static void drawQuad(Graphics2D g, RenderQuad q) {
-        // Crop the texture to the UV region, rotate per face.rotation.
-        BufferedImage region = sampleTextureRegion(q.texture, q.uv, q.textureRotation);
-        if (region == null) return;
-
-        // Apply shading by re-painting through a per-channel scale.
-        if (q.shade < 1.0) {
-            region = applyShade(region, (float) q.shade);
-        }
-
-        // Compute affine transform from texture rect (0,0)-(W,H) to screen
-        // parallelogram (P0,P1,P2,P3). 3-point mapping is enough; we use
-        // P0, P1 (right of P0) and P3 (below P0).
-        double w = region.getWidth();
-        double h = region.getHeight();
-        double[] P0 = {q.screen[0][0], q.screen[0][1]};
-        double[] P1 = {q.screen[1][0], q.screen[1][1]};
-        double[] P3 = {q.screen[3][0], q.screen[3][1]};
-
-        double m00 = (P1[0] - P0[0]) / w;
-        double m10 = (P1[1] - P0[1]) / w;
-        double m01 = (P3[0] - P0[0]) / h;
-        double m11 = (P3[1] - P0[1]) / h;
-        double m02 = P0[0];
-        double m12 = P0[1];
-
-        AffineTransform prev = g.getTransform();
-        try {
-            AffineTransform t = new AffineTransform(prev);
-            t.concatenate(new AffineTransform(m00, m10, m01, m11, m02, m12));
-            g.setTransform(t);
-            g.setComposite(AlphaComposite.SrcOver);
-            g.drawImage(region, 0, 0, null);
-        } finally {
-            g.setTransform(prev);
-        }
-    }
-
-    /**
-     * Cut out the UV-specified region of the texture and apply any
-     * {@link BlockModel.Face#rotation} (multiples of 90°). UV is in 16-unit
-     * texture space; we scale to the actual pixel size.
-     */
-    private static BufferedImage sampleTextureRegion(BufferedImage tex, double[][] uv, int rotation) {
+    private static BufferedImage cropUv(BufferedImage tex, double[] uv, int rotation) {
+        if (tex == null || uv == null || uv.length < 4) return null;
         int texW = tex.getWidth();
         int texH = tex.getHeight();
-        // Scale UV (0..16) to actual pixel coords.
+        // Animated textures stack frames vertically, so map y by texW (square frame size).
         double sx = texW / 16.0;
-        double sy = texH / 16.0;
-        int x1 = (int) Math.round(uv[0][0] * sx);
-        int y1 = (int) Math.round(uv[0][1] * sy);
-        int x2 = (int) Math.round(uv[2][0] * sx);
-        int y2 = (int) Math.round(uv[2][1] * sy);
+        double sy = Math.min(texW, texH) / 16.0;
 
-        int rx = Math.min(x1, x2);
-        int ry = Math.min(y1, y2);
-        int rw = Math.abs(x2 - x1);
-        int rh = Math.abs(y2 - y1);
-        if (rw == 0 || rh == 0) return null;
-        if (rx < 0 || ry < 0 || rx + rw > texW || ry + rh > texH) {
-            // Out of bounds — clamp.
-            rx = Math.max(0, rx);
-            ry = Math.max(0, ry);
-            rw = Math.min(rw, texW - rx);
-            rh = Math.min(rh, texH - ry);
-            if (rw <= 0 || rh <= 0) return null;
-        }
+        int x1 = (int) Math.round(uv[0] * sx);
+        int y1 = (int) Math.round(uv[1] * sy);
+        int x2 = (int) Math.round(uv[2] * sx);
+        int y2 = (int) Math.round(uv[3] * sy);
+        int rx = Math.min(x1, x2), ry = Math.min(y1, y2);
+        int rw = Math.abs(x2 - x1), rh = Math.abs(y2 - y1);
+        if (rw <= 0 || rh <= 0) return null;
+        rx = Math.max(0, Math.min(rx, texW - 1));
+        ry = Math.max(0, Math.min(ry, texH - 1));
+        rw = Math.min(rw, texW - rx);
+        rh = Math.min(rh, texH - ry);
+        if (rw <= 0 || rh <= 0) return null;
+
         BufferedImage sub = tex.getSubimage(rx, ry, rw, rh);
-        if (rotation == 0) return copy(sub);
+        BufferedImage copy = new BufferedImage(rw, rh, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D cg = copy.createGraphics();
+        cg.drawImage(sub, 0, 0, null);
+        cg.dispose();
 
-        // Rotate by 90/180/270 degrees clockwise.
-        BufferedImage out;
+        if (rotation == 0) return copy;
         int r = ((rotation % 360) + 360) % 360;
+        BufferedImage out;
         if (r == 90 || r == 270) out = new BufferedImage(rh, rw, BufferedImage.TYPE_INT_ARGB);
         else                     out = new BufferedImage(rw, rh, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = out.createGraphics();
@@ -341,161 +228,28 @@ public final class BlockModelRenderer {
                     RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             AffineTransform t = new AffineTransform();
             switch (r) {
-                case 90:  t.translate(rh, 0);   t.rotate(Math.PI / 2);  break;
-                case 180: t.translate(rw, rh);  t.rotate(Math.PI);      break;
-                case 270: t.translate(0, rw);   t.rotate(-Math.PI / 2); break;
+                case 90:  t.translate(rh, 0);  t.rotate(Math.PI / 2);  break;
+                case 180: t.translate(rw, rh); t.rotate(Math.PI);      break;
+                case 270: t.translate(0, rw);  t.rotate(-Math.PI / 2); break;
                 default:
             }
-            g.drawImage(sub, t, null);
+            g.drawImage(copy, t, null);
         } finally {
             g.dispose();
         }
         return out;
     }
 
-    private static BufferedImage copy(BufferedImage src) {
-        BufferedImage copy = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = copy.createGraphics();
-        g.drawImage(src, 0, 0, null);
-        g.dispose();
-        return copy;
+    private static final BufferedImage TRANSPARENT_PIXEL = createTransparentPixel();
+
+    private static BufferedImage createTransparentPixel() {
+        BufferedImage img = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        img.setRGB(0, 0, 0x00000000);
+        return img;
     }
 
-    /** Multiply each colour channel by {@code factor}; alpha unchanged. */
-    private static BufferedImage applyShade(BufferedImage src, float factor) {
-        int w = src.getWidth();
-        int h = src.getHeight();
-        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = src.getRGB(x, y);
-                int a = (rgb >>> 24) & 0xFF;
-                if (a == 0) {
-                    out.setRGB(x, y, 0);
-                    continue;
-                }
-                int r = clamp((int) (((rgb >> 16) & 0xFF) * factor));
-                int g = clamp((int) (((rgb >>  8) & 0xFF) * factor));
-                int b = clamp((int) (( rgb        & 0xFF) * factor));
-                out.setRGB(x, y, (a << 24) | (r << 16) | (g << 8) | b);
-            }
-        }
-        return out;
-    }
-
-    private static int clamp(int v) {
-        return v < 0 ? 0 : (v > 255 ? 255 : v);
-    }
-
-    // ---------- transform helpers ----------
-
-    /**
-     * Compose the model→world matrix from a {@code display.gui} transform.
-     * MC convention (per Mojang's source): {@code mulPose(Xp).mulPose(Yp).mulPose(Zp)}
-     * builds the matrix {@code M = Rx * Ry * Rz} so a vertex is transformed as
-     * {@code v' = Rx * Ry * Rz * v} — i.e. <em>Z is applied first, then Y, then X</em>
-     * (right-to-left). With {@link Mat4#preMultiply} prepending on the LEFT,
-     * the call order is the same as the application order: Z first, then Y,
-     * then X.
-     *
-     * <p>Mojang's {@code Axis.YP.rotationDegrees} treats positive degrees as
-     * a clockwise rotation when looking down the +Y axis — opposite of the
-     * standard right-hand-rule convention our {@link Mat4#rotateY} uses. So
-     * we negate the Y angle to get the same visual result MC produces.
-     */
-    private static Mat4 buildGuiMatrix(BlockModel.GuiTransform t) {
-        Mat4 m = Mat4.identity();
-        // 1) Centre the [0..16] cube on the origin.
-        m.translate(-8, -8, -8);
-        // 2) Scale.
-        m.scale(t.scale[0], t.scale[1], t.scale[2]);
-        // 3) Rotate (Z applied first to vertex, then Y, then X).
-        m.rotateZ(t.rotation[2]);
-        m.rotateY(-t.rotation[1]);
-        m.rotateX(t.rotation[0]);
-        // 4) Translate by the configured display offset.
-        m.translate(t.translation[0], t.translation[1], t.translation[2]);
-        return m;
-    }
-
-    /**
-     * Tiny 4×4 row-major matrix struct, just enough for our transform pipeline.
-     * Operations are mutating + chainable. Vector transforms use the upper-left
-     * 3×3 + translation column (homogeneous w=1, no perspective divide).
-     */
-    static final class Mat4 {
-        final double[] m = new double[16];
-
-        static Mat4 identity() {
-            Mat4 r = new Mat4();
-            r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0;
-            return r;
-        }
-
-        void translate(double tx, double ty, double tz) {
-            // pre-multiply: this = T * this
-            Mat4 t = identity();
-            t.m[3]  = tx;
-            t.m[7]  = ty;
-            t.m[11] = tz;
-            preMultiply(t);
-        }
-
-        void scale(double sx, double sy, double sz) {
-            Mat4 s = identity();
-            s.m[0] = sx; s.m[5] = sy; s.m[10] = sz;
-            preMultiply(s);
-        }
-
-        void rotateX(double deg) {
-            if (deg == 0) return;
-            double r = Math.toRadians(deg);
-            double c = Math.cos(r), s = Math.sin(r);
-            Mat4 m = identity();
-            m.m[5] = c;  m.m[6] = -s;
-            m.m[9] = s;  m.m[10] = c;
-            preMultiply(m);
-        }
-
-        void rotateY(double deg) {
-            if (deg == 0) return;
-            double r = Math.toRadians(deg);
-            double c = Math.cos(r), s = Math.sin(r);
-            Mat4 m = identity();
-            m.m[0] = c;  m.m[2] = s;
-            m.m[8] = -s; m.m[10] = c;
-            preMultiply(m);
-        }
-
-        void rotateZ(double deg) {
-            if (deg == 0) return;
-            double r = Math.toRadians(deg);
-            double c = Math.cos(r), s = Math.sin(r);
-            Mat4 m = identity();
-            m.m[0] = c;  m.m[1] = -s;
-            m.m[4] = s;  m.m[5] = c;
-            preMultiply(m);
-        }
-
-        void preMultiply(Mat4 a) {
-            // this = a * this
-            double[] r = new double[16];
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    double v = 0;
-                    for (int k = 0; k < 4; k++) v += a.m[i * 4 + k] * m[k * 4 + j];
-                    r[i * 4 + j] = v;
-                }
-            }
-            System.arraycopy(r, 0, m, 0, 16);
-        }
-
-        /** In-place transform of a 3-element vertex (w=1 implicit). */
-        void transform(double[] v) {
-            double x = v[0], y = v[1], z = v[2];
-            v[0] = m[0] * x + m[1] * y + m[2]  * z + m[3];
-            v[1] = m[4] * x + m[5] * y + m[6]  * z + m[7];
-            v[2] = m[8] * x + m[9] * y + m[10] * z + m[11];
-        }
+    /** Allow the plugin to shut down the render pool on disable. */
+    public static void shutdown() {
+        try { RENDER_POOL.shutdownNow(); } catch (Throwable ignored) {}
     }
 }
