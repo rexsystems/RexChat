@@ -8,7 +8,7 @@ update-checker:
   permission: "rexchat.admin"
   message: "%rc_prefix%&fA new version of &cRexChat &fis available: &c{latest}&7 (current: &f{current}&7). &fDownload: &chttps://www.spigotmc.org/resources/rexchat.122562/"
 
-# Message Settings
+# Plugin messages
 messages:
   prefix: "&7[&6RexChat&7] "
   no-permission: "%rc_prefix%&fYou don't have permission to use this command."
@@ -19,7 +19,6 @@ messages:
   mention:
     sender: "%rc_prefix%&aYou mentioned &6{targets}"
     target: "%rc_prefix%&eYou were mentioned by &6{sender}"
-    # Prevent self-mention triggers (sounds/titles/notifications) while keeping highlight
     prevent-self: true
   preview:
     target-not-found: "%rc_prefix%&cPlayer not found."
@@ -43,14 +42,12 @@ messages:
       label-template: "&7[&5Ender Chest&7]"
       open: "%rc_prefix%&7Opening ender chest preview for &6{player}"
     balance:
-      # Label shown in chat in place of [bal]/[balance].
       # Placeholders: {balance} (formatted), {amount} (raw decimal), {currency}, {player}
       label-template: "&7[&a{balance}&7]"
-      # Hover text on the balance label
       hover: "&7Balance of &6{player}&7: &a{balance}"
-      # Shown when Vault Economy is not installed/registered
       unavailable-label: "&7[&cBalance unavailable&7]"
 
+# Mention behaviour
 mention:
   enabled: true
   color: "&6"
@@ -71,19 +68,18 @@ mention:
     stay: 40
     fade-out: 10
 
-# Join/Leave Messages (leave blank to disable)
+# Join / leave messages (leave blank to disable)
 join-leave:
   join-message: ""
   leave-message: ""
 
-# Chat reporting (1.19+). When enabled, RexChat converts player chat into
-# system messages to avoid signed chat reporting and validation issues.
+# When enabled, RexChat sends chat as system messages to bypass 1.19+ chat
+# reporting / signed-message validation.
 chat-reporting:
   disable: true
 
 
-# Chat Color Presets - Players can select from these using /chatcolor
-# Remove or add colors as you wish - they won't regenerate automatically
+# Chat colour presets selectable with /chatcolor.
 chatcolor:
   enabled: true
   colors:
@@ -120,41 +116,39 @@ chatcolor:
       permission: "rexchat.chatcolor.ocean"
       display-name: "Ocean"
 
-# Chat Formatting
+# Chat formatting
+#
+# Format placeholders:
+#   {player}, {display_name}, {message}, {prefix},
+#   {world}, {health}, {max_health}, {x}, {y}, {z}, {ping}
+#
+# Permissions:
+#   rexchat.chatcolor              - allow colour codes in chat (&c, &#FF0000, #FF0000)
+#   rexchat.chat.minimessage       - allow MiniMessage tags in chat (<gradient>, <hover>, <click>, ...)
+#   rexchat.chat.placeholders      - allow PlaceholderAPI placeholders in chat
 chat-format:
   enabled: true
-  # Base format. Available placeholders:
-  # {player}, {display_name}, {message}, {world}, {health}, {max_health}, {x}, {y}, {z}, {ping}
-  # {prefix} resolves via LuckPerms/Vault directly (no PAPI required)
-  #
-  # Permissions:
-  # - rexchat.chatcolor: Allows using color codes (&c, &#FF0000, #FF0000) in chat
-  # - rexchat.chat.minimessage: Allows using MiniMessage tags (<click>, <hover>, <gradient>, etc.) in chat
-  # - rexchat.chat.placeholders: Allows using PlaceholderAPI placeholders in chat messages
   format: "{prefix}&7{player}: &f{message}"
   player:
     hover:
       enabled: true
-      # Lines shown on hover over the player's name. Supports same placeholders and colors.
       lines:
         - "&7Health: &c{health}&7/&c{max_health}"
         - "&7World: &f{world}"
         - "&7Location: &f{x}&7, &f{y}&7, &f{z}"
         - "&7Ping: &f{ping}ms"
 
-  # Group-specific overrides (first matching group wins)
-  # Uses LuckPerms/Vault primary group via PlaceholderAPI if available,
-  # or matches by permission (e.g., group.<name>) or explicit permission below.
+  # Group overrides. First matching group wins. Resolved via the player's
+  # LuckPerms / Vault primary group, or via an explicit `permission:` below.
   groups:
     helper:
-# permission: "group.helper"  # optional, if not using the primary group
+      # permission: "group.helper"
       format: "{prefix}&7{player}: &a{message}"
       hover:
         enabled: true
         lines:
           - "&aHelper &7• &fPing: {ping}ms"
     moderator:
-      # Optional explicit permission to match this group
       # permission: "group.moderator"
       format: "{prefix}&7{player}: &b{message}"
       hover:
@@ -169,7 +163,7 @@ chat-format:
         lines:
           - "&cAdmin &7• &fPing: {ping}ms"
 
-# Chat Emojis (enabled by default). Users can add more in the list below.
+# Chat emojis. Add your own under `emojis:`.
 chat-emoji:
   enabled: true
   emojis:
@@ -180,45 +174,31 @@ chat-emoji:
       aliases: ["<3", ":heart:"]
       replacement: "❤"
 
-# Chat Previews
+# Chat preview tokens. Anything in these lists, when typed in chat, expands
+# into a clickable preview (item / inventory / ender chest / balance).
 chat-previews:
   enabled: true
   tokens:
     item: ["[item]", "[i]", "{item}", "{i}"]
     inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]
     enderchest: ["[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}"]
-    # Requires Vault + an Economy plugin (EssentialsX, CMI, etc.) to display balance
+    # Requires Vault + an Economy plugin (EssentialsX, CMI, ...) for [bal]/[money].
     balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
 
-# Discord integration via DiscordSRV (soft-dependency, optional).
-# When DiscordSRV is installed RexChat hooks into its outbound chat pipeline:
-#   1) [item] / [inv] / [ec] tokens are replaced with friendly text labels
-#      (e.g. "[Diamond Sword × 32]") in the relayed Discord message.
-#   2) The matching rich embed and/or rendered PNG (inventory or ender chest)
-#      is queued and a hidden marker is appended to the message.
-#   3) Once DiscordSRV has delivered the message, RexChat edits THAT SAME
-#      message to attach the embeds + PNGs inline. So the chat shows up as
-#      one clean Discord message per chat line, not a flurry of follow-ups.
-# Works with both bot-relay and webhook delivery in DSRV (webhook editing
-# uses DSRV's WebhookUtil internally).
+# DiscordSRV integration (optional, soft-dependency).
+# Renders [item] / [inv] / [ec] as proper Minecraft-style images and attaches
+# them to the relayed Discord message.
 chat-discord:
   enabled: true
-  # Verbose debug logging for the Discord preview pipeline. When true the
-  # plugin logs every texture HTTP fetch (OK / 404), each block-icon
-  # resolver decision and each armour overlay attempt. Useful for
-  # troubleshooting "block X doesn't show" or "armour isn't visible"
-  # without having to dig through code. Leave OFF in production.
+  # Set to true if a preview isn't appearing in Discord and you need verbose
+  # logs (texture downloads, block resolver decisions, armour overlays).
   debug: false
-  # Per-token toggles for image/embed delivery. Token rewriting still happens
-  # even when these are off (so chat shows the label) — this only controls
-  # whether the rich preview is attached.
   previews:
     item: true
     inventory: true
     enderchest: true
-  # Static fallback labels used in chat. The [item] label is built dynamically
-  # from the held item ("[Diamond Sword × 32]"), so only inventory / ender
-  # chest / balance-unavailable have a fixed string.
+  # Static labels shown in chat in place of the token. The [item] label is
+  # generated dynamically (e.g. "[Diamond Sword × 32]").
   labels:
     inventory: "[Inventory]"
     enderchest: "[Ender Chest]"
@@ -226,17 +206,10 @@ chat-discord:
   embeds:
     item:
       title: "{player}'s item"
-      # Color in #RRGGBB hex
       color: "#5865F2"
-      # Size of the rendered item-icon thumbnail attached to the embed
-      # (square, in pixels). The icon is shown as the small corner thumbnail;
-      # the larger Minecraft-style hover tooltip (with name + enchants +
-      # durability) is rendered separately and attached as the embed's main
-      # image. 96 is a good balance for the corner thumbnail.
+      # Square pixel size of the rendered item icon (small thumbnail in the
+      # embed corner). The bigger MC-style hover tooltip is sized automatically.
       icon-pixels: 96
-      # Optional URL template (legacy). Used only if no rendered icon
-      # attachment is produced. Supports {type} and {material} placeholders.
-      image-url-template: ""
     inventory:
       title: "{player}'s inventory"
       color: "#57F287"
@@ -244,7 +217,7 @@ chat-discord:
       title: "{player}'s ender chest"
       color: "#9B59B6"
 
-# Chat Management Settings
+# Mute / clear / proximity (local) chat.
 chat-management:
   mute:
     enabled: true
@@ -258,22 +231,16 @@ chat-management:
     clear-message: "%rc_prefix%&fThe chat has been cleared by {player}"
     lines: 100
   proximity:
-    # Global proximity chat - messages only visible to players within radius
     enabled: false
-    # Radius in blocks
     radius: 100
-    # Permission to bypass proximity limit (see global chat)
     bypass-permission: "rexchat.proximity.bypass"
-    # Message shown to sender when no one is in range
     no-recipients-message: "%rc_prefix%&7No one is nearby to hear you."
-    # Show range indicator in chat format (optional)
     show-range-indicator: false
     range-indicator: "&7[Local] "
-    # Messages for /rc global and /rc local commands
     global-enabled: "%rc_prefix%&aGlobal chat enabled. Everyone will see your messages."
     local-enabled: "%rc_prefix%&eLocal chat enabled. Only nearby players will see your messages."
 
-# Commands Configuration
+# Custom info commands.
 commands:
   discord:
     enabled: true
