@@ -24,13 +24,13 @@ import java.util.Map;
  * Lives under {@code hooks/} so its DiscordSRV-relocated JDA imports are
  * isolated from the rest of the plugin.
  */
-final class DiscordEmbedFactory {
+public final class DiscordEmbedFactory {
 
     private DiscordEmbedFactory() {}
 
     // ---------- Item ----------
 
-    static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
+    public static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
         if (item == null || item.getType() == Material.AIR) return null;
 
         String title = cfg.getString("chat-discord.embeds.item.title", "{player}'s item")
@@ -189,7 +189,7 @@ final class DiscordEmbedFactory {
 
     // ---------- helpers ----------
 
-    static String itemDisplayName(ItemStack item) {
+    public static String itemDisplayName(ItemStack item) {
         try {
             if (item.hasItemMeta() && item.getItemMeta() != null
                     && item.getItemMeta().hasDisplayName()) {

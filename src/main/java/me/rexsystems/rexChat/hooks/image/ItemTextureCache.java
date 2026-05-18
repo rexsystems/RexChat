@@ -28,9 +28,15 @@ import java.util.concurrent.ConcurrentMap;
  */
 public final class ItemTextureCache {
 
-    /** Default CDN. Configurable via {@code chat-discord.embeds.item.texture-base-url}. */
+    /**
+     * Default CDN. Configurable via
+     * {@code chat-discord.images.texture-base-url}. Mirrors what
+     * InteractiveChat-DiscordSRV-Addon ships in its bundled resource pack:
+     * the official MC textures for a specific game version, served by
+     * mcasset.cloud's Cloudflare edge.
+     */
     public static final String DEFAULT_BASE_URL =
-            "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/";
+            "https://assets.mcasset.cloud/26.1.2/assets/minecraft/textures/";
 
     private static final BufferedImage MISSING = createMissingTexture();
     private static final int TIMEOUT_MS = 5_000;

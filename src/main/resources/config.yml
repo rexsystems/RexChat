@@ -191,17 +191,33 @@ chat-previews:
     balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
 
 # Discord integration via DiscordSRV (soft-dependency, optional).
-# When DiscordSRV is installed, RexChat forwards chat messages to it manually
-# (because RexChat cancels Bukkit's chat event when chat-reporting.disable is on),
-# and emits rich embeds for [item] / [inv] / [ec] tokens in the linked channel.
+# When DiscordSRV is installed RexChat hooks into its outbound chat pipeline
+# the same way InteractiveChat-DiscordSRV-Addon does:
+#   1) [item] / [inv] / [ec] tokens are replaced with friendly text labels
+#      (e.g. "[Diamond Sword × 32]") in the relayed Discord message.
+#   2) The matching rich embed and/or rendered PNG (inventory or ender chest)
+#      is queued and a hidden marker is appended to the message.
+#   3) Once DiscordSRV has delivered the message, RexChat edits THAT SAME
+#      message to attach the embeds + PNGs inline. So the chat shows up as
+#      one clean Discord message per chat line, not a flurry of follow-ups.
+# Works with both bot-relay and webhook delivery in DSRV (webhook editing
+# uses DSRV's WebhookUtil internally).
 chat-discord:
   enabled: true
-  # DiscordSRV game-channel name (matches DSRV's `Channels:` map). Empty = use main channel.
-  channel: ""
+  # Per-token toggles for image/embed delivery. Token rewriting still happens
+  # even when these are off (so chat shows the label) — this only controls
+  # whether the rich preview is attached.
   previews:
     item: true
     inventory: true
     enderchest: true
+  # Static fallback labels used in chat. The [item] label is built dynamically
+  # from the held item ("[Diamond Sword × 32]"), so only inventory / ender
+  # chest / balance-unavailable have a fixed string.
+  labels:
+    inventory: "[Inventory]"
+    enderchest: "[Ender Chest]"
+    balance-unavailable: "(balance unavailable)"
   embeds:
     item:
       title: "{player}'s item"
@@ -219,12 +235,14 @@ chat-discord:
     enderchest:
       title: "{player}'s ender chest"
       color: "#9B59B6"
-  # Item textures used by the item embed thumbnail and by the rendered inventory
-  # / ender chest images. Files are downloaded once and cached under
-  # <plugin folder>/textures/. The renderer appends 'item/' or 'block/' + the
-  # material name + '.png' to this base URL.
+  # Item, block AND gui textures used by the embeds and rendered inventory /
+  # ender chest images. Files are downloaded once and cached under
+  # <plugin folder>/textures/. The renderer appends 'item/<material>.png',
+  # 'block/<material>.png' or 'gui/container/<name>.png' to this base URL.
+  # Default points at mcasset.cloud (the same CDN ICDA's resource pack
+  # mirrors), pinned to a known-good MC version so URLs never 404.
   images:
-    texture-base-url: "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/"
+    texture-base-url: "https://assets.mcasset.cloud/26.1.2/assets/minecraft/textures/"
 
 # Chat Management Settings
 chat-management:
