@@ -68,16 +68,19 @@ public final class BlockIconRenderer {
     private static final float RIGHT_SHADE = 0.7f;
 
     private final ItemTextureCache textures;
+    private final BlockModelRenderer modelRenderer;
     private final ConcurrentMap<Material, BufferedImage> cache = new ConcurrentHashMap<>();
     private java.util.function.Consumer<String> debug = msg -> {};
 
     public BlockIconRenderer(ItemTextureCache textures) {
         this.textures = textures;
+        this.modelRenderer = new BlockModelRenderer(textures);
     }
 
     /** Wire up a debug-log sink so this renderer can report which strategy hit. */
     public void setDebug(java.util.function.Consumer<String> sink) {
         this.debug = sink == null ? msg -> {} : sink;
+        this.modelRenderer.setDebug(sink);
     }
 
     /**
@@ -90,6 +93,21 @@ public final class BlockIconRenderer {
         BufferedImage cached = cache.get(mat);
         if (cached != null) return cached == NONE ? null : cached;
 
+        // 1) Try the proper model-based renderer first: parse the block's
+        //    model JSON (with parent inheritance + texture variable resolution)
+        //    and render it at vanilla GUI angles (30° pitch, 225° yaw,
+        //    0.625× scale) with per-face shading. This handles non-cube
+        //    blocks (stairs, slabs) and matches what MC itself shows in
+        //    the inventory.
+        BufferedImage modelOut = renderViaModel(mat);
+        if (modelOut != null) {
+            cache.put(mat, modelOut);
+            return modelOut;
+        }
+
+        // 2) Fallback: the simplified 2:1 axonometric projection. Less
+        //    accurate but always works for any block whose textures we
+        //    can resolve via name conventions.
         Faces faces = resolveFaces(mat);
         if (faces == null) {
             debug.accept("block-iso: " + mat + " — no face textures resolved, falling back");
@@ -100,6 +118,30 @@ public final class BlockIconRenderer {
         BufferedImage out = compose(faces);
         cache.put(mat, out);
         return out;
+    }
+
+    /**
+     * Try to render the block via its full model JSON. Returns {@code null}
+     * if the model can't be loaded (network failure, corrupt JSON) or has
+     * no resolvable textures, in which case the caller falls back to the
+     * iso compositor.
+     */
+    private BufferedImage renderViaModel(Material mat) {
+        try {
+            String key = "block/" + mat.name().toLowerCase(java.util.Locale.ROOT);
+            BlockModel model = BlockModel.load(key, textures);
+            if (model == null) {
+                debug.accept("block-model: " + mat + " — JSON not found at " + key);
+                return null;
+            }
+            model.resolveTextureVars();
+            BufferedImage img = modelRenderer.render(model);
+            if (img != null) debug.accept("block-model: " + mat + " rendered via JSON pipeline");
+            return img;
+        } catch (Throwable t) {
+            debug.accept("block-model: " + mat + " — failed " + t.getClass().getSimpleName() + " " + t.getMessage());
+            return null;
+        }
     }
 
     // ---------- face resolution ----------

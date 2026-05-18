@@ -1,5 +1,8 @@
 package me.rexsystems.rexChat.hooks.image;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 
@@ -7,12 +10,17 @@ import javax.imageio.ImageIO;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -62,6 +70,8 @@ public final class ItemTextureCache {
     private final File cacheDir;
     private final String baseUrl;
     private final ConcurrentMap<String, BufferedImage> memCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, JsonObject> jsonCache = new ConcurrentHashMap<>();
+    private static final JsonObject MISSING_JSON = new JsonObject();
     private Consumer<String> debug = msg -> {};
 
     public ItemTextureCache(File pluginDataFolder, String baseUrl) {
@@ -169,6 +179,81 @@ public final class ItemTextureCache {
         }
         memCache.put(key, img);
         return img;
+    }
+
+    /**
+     * Fetch + parse a JSON resource pack file (e.g.
+     * {@code "models/block/dirt.json"}). Returns {@code null} if the file
+     * is missing on the CDN. Both successful results and 404s are cached
+     * (in memory + on disk) so repeat lookups are free.
+     */
+    public JsonObject getJson(String relativePath) {
+        if (relativePath == null || relativePath.isEmpty()) return null;
+        String key = "json:" + relativePath;
+        JsonObject cached = jsonCache.get(key);
+        if (cached != null) return cached == MISSING_JSON ? null : cached;
+
+        File diskFile = new File(cacheDir, "json_" + relativePath.replace('/', '_'));
+        if (diskFile.exists() && diskFile.length() > 0) {
+            try {
+                String text = new String(Files.readAllBytes(Path.of(diskFile.toURI())),
+                        StandardCharsets.UTF_8);
+                JsonObject obj = JsonParser.parseString(text).getAsJsonObject();
+                jsonCache.put(key, obj);
+                return obj;
+            } catch (Throwable ignored) {
+            }
+        }
+
+        String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        String url = b + relativePath;
+        String text = tryFetchText(url);
+        if (text == null) {
+            jsonCache.put(key, MISSING_JSON);
+            return null;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(text).getAsJsonObject();
+            try {
+                Files.write(Path.of(diskFile.toURI()), text.getBytes(StandardCharsets.UTF_8));
+            } catch (Throwable ignored) {
+            }
+            jsonCache.put(key, obj);
+            return obj;
+        } catch (Throwable t) {
+            debug.accept("json: parse error " + t.getMessage() + " - " + url);
+            jsonCache.put(key, MISSING_JSON);
+            return null;
+        }
+    }
+
+    private String tryFetchText(String url) {
+        try {
+            URL u = URI.create(url).toURL();
+            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+            conn.setRequestProperty("User-Agent", "RexChat/1.0 (+https://rexsystems.me)");
+            conn.setConnectTimeout(TIMEOUT_MS);
+            conn.setReadTimeout(TIMEOUT_MS);
+            conn.setInstanceFollowRedirects(true);
+            int code = conn.getResponseCode();
+            if (code != 200) {
+                debug.accept("json: HTTP " + code + " - " + url);
+                conn.disconnect();
+                return null;
+            }
+            try (BufferedReader r = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = r.readLine()) != null) sb.append(line).append('\n');
+                conn.disconnect();
+                debug.accept("json: OK - " + url);
+                return sb.toString();
+            }
+        } catch (Throwable t) {
+            debug.accept("json: ERR " + t.getClass().getSimpleName() + " " + url);
+            return null;
+        }
     }
 
     private BufferedImage downloadTexture(String key) {
