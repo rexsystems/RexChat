@@ -191,8 +191,7 @@ chat-previews:
     balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
 
 # Discord integration via DiscordSRV (soft-dependency, optional).
-# When DiscordSRV is installed RexChat hooks into its outbound chat pipeline
-# the same way InteractiveChat-DiscordSRV-Addon does:
+# When DiscordSRV is installed RexChat hooks into its outbound chat pipeline:
 #   1) [item] / [inv] / [ec] tokens are replaced with friendly text labels
 #      (e.g. "[Diamond Sword × 32]") in the relayed Discord message.
 #   2) The matching rich embed and/or rendered PNG (inventory or ender chest)
