@@ -205,8 +205,14 @@ public final class ItemTextureCache {
             }
         }
 
-        String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-        String url = b + relativePath;
+        // Texture base URL ends in `assets/minecraft/textures/` — but model
+        // JSONs live at `assets/minecraft/models/...`, NOT under textures/.
+        // Strip the trailing `textures/` (if present) so the path resolves
+        // against `assets/minecraft/`.
+        String b = baseUrl;
+        if (b.endsWith("/")) b = b.substring(0, b.length() - 1);
+        if (b.endsWith("/textures")) b = b.substring(0, b.length() - "/textures".length());
+        String url = b + "/" + relativePath;
         String text = tryFetchText(url);
         if (text == null) {
             jsonCache.put(key, MISSING_JSON);
