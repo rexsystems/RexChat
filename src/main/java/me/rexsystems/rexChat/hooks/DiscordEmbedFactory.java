@@ -62,11 +62,22 @@ public final class DiscordEmbedFactory {
         if (iconName != null && !iconName.isEmpty()) {
             eb.setThumbnail("attachment://" + iconName);
         } else {
-            String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
-                    "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/");
             String type = item.getType().isBlock() ? "block" : "item";
             String materialName = item.getType().name().toLowerCase();
-            String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+            // mcasset.cloud pinned to the running MC version. The renderer
+            // resolves {version} via Bukkit; we do the same here so the
+            // legacy thumbnail URL points at the right asset version.
+            String version;
+            try {
+                String mc = org.bukkit.Bukkit.getMinecraftVersion();
+                version = (mc == null || mc.isEmpty())
+                        ? me.rexsystems.rexChat.hooks.image.ItemTextureCache.FALLBACK_VERSION
+                        : mc;
+            } catch (Throwable t) {
+                version = me.rexsystems.rexChat.hooks.image.ItemTextureCache.FALLBACK_VERSION;
+            }
+            String b = "https://assets.mcasset.cloud/" + version
+                    + "/assets/minecraft/textures/";
             eb.setThumbnail(b + type + "/" + materialName + ".png");
         }
 

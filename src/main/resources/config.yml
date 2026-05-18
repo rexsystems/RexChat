@@ -243,17 +243,6 @@ chat-discord:
     enderchest:
       title: "{player}'s ender chest"
       color: "#9B59B6"
-  # Item, block AND gui textures used by the embeds and rendered inventory /
-  # ender chest images. Files are downloaded once and cached under
-  # <plugin folder>/textures/. The renderer appends 'item/<material>.png',
-  # 'block/<material>.png' or 'gui/container/<name>.png' to this base URL.
-  #
-  # The literal placeholder {version} is replaced at runtime with the
-  # running server's MC version (e.g. "1.21.4"), so the URL automatically
-  # tracks server upgrades. Set a fixed version (e.g. "26.1.2") if you want
-  # to pin the look of previews against a specific MC release.
-  images:
-    texture-base-url: "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/"
 
 # Chat Management Settings
 chat-management:

@@ -58,10 +58,9 @@ public final class DiscordSRVHook {
     public DiscordSRVHook(RexChat plugin) {
         this.plugin = plugin;
         FileConfiguration cfg = plugin.getConfigManager().getConfig();
-        String texBase = cfg.getString("chat-discord.images.texture-base-url",
-                ItemTextureCache.DEFAULT_BASE_URL);
 
-        this.textureCache = new ItemTextureCache(plugin.getDataFolder(), texBase);
+        this.textureCache = new ItemTextureCache(plugin.getDataFolder(),
+                ItemTextureCache.DEFAULT_BASE_URL);
         // GuiTextureCache + BlockIconRenderer use whatever base URL the item cache
         // resolved (so {version} placeholders are honoured exactly once).
         String resolved = textureCache.getBaseUrl();
