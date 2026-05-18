@@ -381,7 +381,8 @@ public final class InventoryImageRenderer {
      * Render an item icon at the requested square pixel size, suitable for
      * use as the {@code setImage} attachment on an embed. Background is
      * transparent and the icon is centred. Falls back to a flat 16×16 item
-     * texture when an iso cube isn't possible.
+     * texture when an iso cube isn't possible. Damageable items get a
+     * vanilla-style durability bar drawn at the bottom of the icon.
      */
     public BufferedImage renderItemIcon(ItemStack item, int sizePx) {
         BufferedImage out = new BufferedImage(sizePx, sizePx, BufferedImage.TYPE_INT_ARGB);
@@ -390,19 +391,48 @@ public final class InventoryImageRenderer {
             configureGraphics(g);
             BufferedImage tex = resolveItemIcon(item);
             if (tex == null) return out; // empty / transparent
+
             // Reserve ~8% margin so the icon isn't flush against the embed edge.
             int margin = sizePx / 12;
             int side = sizePx - margin * 2;
-            // For non-square source, fit by largest dimension.
             int srcMax = Math.max(tex.getWidth(), tex.getHeight());
             int dw = (int) Math.round((double) tex.getWidth()  / srcMax * side);
             int dh = (int) Math.round((double) tex.getHeight() / srcMax * side);
             int dx = (sizePx - dw) / 2;
             int dy = (sizePx - dh) / 2;
             drawScaled(g, tex, dx, dy, dw, dh);
+
+            // Durability bar overlaid in the lower portion of the icon.
+            drawIconDurabilityBar(g, item, dx, dy, dw, dh);
         } finally {
             g.dispose();
         }
         return out;
+    }
+
+    /** Larger durability bar tuned for the big [item] icon. */
+    private static void drawIconDurabilityBar(Graphics2D g, ItemStack item,
+                                              int tx, int ty, int tw, int th) {
+        try {
+            if (item == null || !(item.getItemMeta() instanceof Damageable)) return;
+            Damageable d = (Damageable) item.getItemMeta();
+            int max = item.getType().getMaxDurability();
+            if (max <= 0 || !d.hasDamage()) return;
+
+            int remaining = max - d.getDamage();
+            float frac = remaining / (float) max;
+            int barW   = (int) (tw * 0.8);
+            int barH   = Math.max(2, tw / 32);
+            int barX   = tx + (tw - barW) / 2;
+            int barY   = ty + th - barH * 3;
+            int fillW  = Math.max(2, Math.round(barW * frac));
+
+            g.setColor(DURABILITY_BG);
+            g.fillRect(barX, barY, barW, barH);
+            int rgb = java.awt.Color.HSBtoRGB(frac / 3f, 1.0f, 1.0f);
+            g.setColor(new Color(rgb));
+            g.fillRect(barX, barY, fillW, Math.max(1, barH / 2));
+        } catch (Throwable ignored) {
+        }
     }
 }

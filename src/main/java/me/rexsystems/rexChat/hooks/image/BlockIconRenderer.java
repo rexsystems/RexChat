@@ -54,11 +54,14 @@ public final class BlockIconRenderer {
     /** Sentinel used to cache "no iso possible" results so we don't retry. */
     private static final BufferedImage NONE = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 
-    // Affine transforms that project a 16×16 face texture onto its iso position.
-    // Java AffineTransform args: (m00, m10, m01, m11, m02, m12).
-    private static final AffineTransform TOP_FACE   = new AffineTransform( 1.0, 0.5, -1.0, 0.5, 16.0, 0.0);
-    private static final AffineTransform LEFT_FACE  = new AffineTransform( 1.0, 0.5,  0.0, 1.0,  0.0, 8.0);
-    private static final AffineTransform RIGHT_FACE = new AffineTransform(-1.0, 0.5,  0.0, 1.0, 32.0, 8.0);
+    // The iso cube is rendered into a 28×28 inner box centred inside the 32×32
+    // canvas so blocks have a 2-pixel breathing margin in the inventory slot,
+    // matching the GUI display matrix scale (~0.875) Minecraft applies to
+    // blocks in vanilla. Affine coefficients = base coefficients × 0.875 plus
+    // a (+2, +2) translate.
+    private static final AffineTransform TOP_FACE   = new AffineTransform( 0.875, 0.4375, -0.875, 0.4375, 16.0, 2.0);
+    private static final AffineTransform LEFT_FACE  = new AffineTransform( 0.875, 0.4375,  0.0,   0.875,  2.0, 9.0);
+    private static final AffineTransform RIGHT_FACE = new AffineTransform(-0.875, 0.4375,  0.0,   0.875, 30.0, 9.0);
 
     // Side face shading matches MC's inventory GUI lighting.
     private static final float LEFT_SHADE  = 0.85f;

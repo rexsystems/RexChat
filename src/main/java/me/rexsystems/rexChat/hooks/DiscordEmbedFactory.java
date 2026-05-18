@@ -33,13 +33,17 @@ public final class DiscordEmbedFactory {
     /**
      * Build the item-preview embed.
      *
-     * @param attachmentName name of an attached PNG to use for the LARGE embed
-     *        image (via {@code setImage("attachment://" + name)}). When non-null
-     *        the small {@code setThumbnail} URL is skipped — making the icon
-     *        render at full embed width instead of as a tiny corner thumbnail.
+     * @param iconName   filename of the small item-icon attachment used as
+     *                   {@code setThumbnail}; pass {@code null} to fall back
+     *                   to a direct CDN URL.
+     * @param tooltipName filename of the rendered MC-tooltip attachment used
+     *                    as {@code setImage}; pass {@code null} to render the
+     *                    item details as embed fields instead.
      */
     public static MessageEmbed itemEmbed(Player sender, ItemStack item,
-                                         FileConfiguration cfg, String attachmentName) {
+                                         FileConfiguration cfg,
+                                         String iconName,
+                                         String tooltipName) {
         if (item == null || item.getType() == Material.AIR) return null;
 
         String title = cfg.getString("chat-discord.embeds.item.title", "{player}'s item")
@@ -54,26 +58,61 @@ public final class DiscordEmbedFactory {
                 .setTitle(title)
                 .setDescription("**" + escape(displayName) + "**" + (amount > 1 ? " × " + amount : ""));
 
-        // Material technical info
-        eb.addField("Material", "`" + item.getType().name().toLowerCase() + "`", true);
-        eb.addField("Amount", String.valueOf(amount), true);
+        // Small icon (thumbnail) — prefer attachment, fall back to CDN url.
+        if (iconName != null && !iconName.isEmpty()) {
+            eb.setThumbnail("attachment://" + iconName);
+        } else {
+            String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
+                    "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/");
+            String type = item.getType().isBlock() ? "block" : "item";
+            String materialName = item.getType().name().toLowerCase();
+            String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+            eb.setThumbnail(b + type + "/" + materialName + ".png");
+        }
 
-        // Durability for damageable items
+        if (tooltipName != null && !tooltipName.isEmpty()) {
+            // Tooltip image carries name + enchants + durability + lore. Skip
+            // duplicating any of that as embed fields so the embed reads cleanly.
+            eb.setImage("attachment://" + tooltipName);
+        } else {
+            // No tooltip rendering available — fall back to text fields.
+            populateLegacyFields(eb, item);
+        }
+
+        return eb.build();
+    }
+
+    /** Backward-compatible 4-arg overload: rendered icon, no tooltip. */
+    public static MessageEmbed itemEmbed(Player sender, ItemStack item,
+                                         FileConfiguration cfg, String attachmentName) {
+        return itemEmbed(sender, item, cfg, attachmentName, null);
+    }
+
+    /** Original 3-arg overload preserved for legacy callers. */
+    public static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
+        return itemEmbed(sender, item, cfg, null, null);
+    }
+
+    /**
+     * Drop-in replacement for the original embed-fields style. Used as a
+     * fallback when the tooltip image isn't available.
+     */
+    private static void populateLegacyFields(EmbedBuilder eb, ItemStack item) {
+        eb.addField("Material", "`" + item.getType().name().toLowerCase() + "`", true);
+        eb.addField("Amount", String.valueOf(item.getAmount()), true);
+
         try {
             if (item.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable) {
                 org.bukkit.inventory.meta.Damageable d =
                         (org.bukkit.inventory.meta.Damageable) item.getItemMeta();
-                if (d.hasDamage() || item.getType().getMaxDurability() > 0) {
-                    int max = item.getType().getMaxDurability();
+                int max = item.getType().getMaxDurability();
+                if (max > 0) {
                     int remaining = max - d.getDamage();
-                    if (max > 0) {
-                        eb.addField("Durability", remaining + " / " + max, true);
-                    }
+                    eb.addField("Durability", remaining + " / " + max, true);
                 }
             }
         } catch (Throwable ignored) {}
 
-        // Enchantments
         Map<Enchantment, Integer> enchants = item.getEnchantments();
         if (enchants.isEmpty() && item.hasItemMeta()
                 && item.getItemMeta() instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta) {
@@ -89,7 +128,6 @@ public final class DiscordEmbedFactory {
             eb.addField("Enchantments", sb.toString(), false);
         }
 
-        // Lore
         if (item.hasItemMeta()) {
             ItemMeta meta = item.getItemMeta();
             if (meta != null && meta.hasLore() && meta.getLore() != null && !meta.getLore().isEmpty()) {
@@ -104,41 +142,6 @@ public final class DiscordEmbedFactory {
                 eb.addField("Lore", sb.toString(), false);
             }
         }
-
-        // Item icon. We attach a rendered PNG (iso cube for blocks, flat
-        // texture for items) and use setImage so it renders LARGE in the
-        // embed instead of as a tiny thumbnail. The actual rendering happens
-        // in OutboundChatListener (which has the renderer); this method just
-        // wires the embed up to the {@code attachment://} URL when an
-        // {@code attachmentName} is supplied.
-        if (attachmentName != null && !attachmentName.isEmpty()) {
-            eb.setImage("attachment://" + attachmentName);
-        } else {
-            // Legacy fallback: still provide a small thumbnail from the CDN
-            // so embeds aren't completely iconless when no attachment is
-            // available.
-            String baseUrl = cfg.getString("chat-discord.images.texture-base-url",
-                    "https://assets.mcasset.cloud/{version}/assets/minecraft/textures/");
-            String legacyTpl = cfg.getString("chat-discord.embeds.item.image-url-template", null);
-
-            String type = item.getType().isBlock() ? "block" : "item";
-            String materialName = item.getType().name().toLowerCase();
-            String url;
-            if (legacyTpl != null && !legacyTpl.isEmpty() && legacyTpl.contains("{type}")) {
-                url = legacyTpl.replace("{type}", type).replace("{material}", materialName);
-            } else {
-                String b = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-                url = b + type + "/" + materialName + ".png";
-            }
-            eb.setThumbnail(url);
-        }
-
-        return eb.build();
-    }
-
-    /** Convenience overload preserving the old signature (no attachment). */
-    public static MessageEmbed itemEmbed(Player sender, ItemStack item, FileConfiguration cfg) {
-        return itemEmbed(sender, item, cfg, null);
     }
 
     // ---------- Inventory ----------

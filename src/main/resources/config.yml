@@ -223,10 +223,12 @@ chat-discord:
       title: "{player}'s item"
       # Color in #RRGGBB hex
       color: "#5865F2"
-      # Size of the rendered item icon attached to the embed (square, in
-      # pixels). Larger = nicer-looking icon, smaller = less bandwidth.
-      # 256 is a good balance for Discord's embed image area.
-      icon-pixels: 256
+      # Size of the rendered item-icon thumbnail attached to the embed
+      # (square, in pixels). The icon is shown as the small corner thumbnail;
+      # the larger Minecraft-style hover tooltip (with name + enchants +
+      # durability) is rendered separately and attached as the embed's main
+      # image. 96 is a good balance for the corner thumbnail.
+      icon-pixels: 96
       # Optional URL template (legacy). Used only if no rendered icon
       # attachment is produced. Supports {type} and {material} placeholders.
       image-url-template: ""

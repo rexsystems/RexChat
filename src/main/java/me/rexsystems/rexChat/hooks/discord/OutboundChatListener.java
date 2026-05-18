@@ -9,6 +9,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import me.rexsystems.rexChat.RexChat;
 import me.rexsystems.rexChat.hooks.DiscordEmbedFactory;
 import me.rexsystems.rexChat.hooks.image.InventoryImageRenderer;
+import me.rexsystems.rexChat.hooks.image.ItemTooltipRenderer;
 import me.rexsystems.rexChat.utils.VaultEconomyUtils;
 
 import org.bukkit.Material;
@@ -50,11 +51,13 @@ public final class OutboundChatListener {
 
     private final RexChat plugin;
     private final InventoryImageRenderer renderer;
+    private final ItemTooltipRenderer tooltipRenderer;
     private boolean subscribed;
 
     public OutboundChatListener(RexChat plugin, InventoryImageRenderer renderer) {
         this.plugin = plugin;
         this.renderer = renderer;
+        this.tooltipRenderer = new ItemTooltipRenderer();
     }
 
     public void register() {
@@ -101,24 +104,31 @@ public final class OutboundChatListener {
 
                 if (cfg.getBoolean("chat-discord.previews.item", true)
                         && hand != null && hand.getType() != Material.AIR) {
-                    // Render a 256×256 icon (iso cube for blocks, flat texture
-                    // for items) and attach it so the embed shows it LARGE
-                    // via setImage, instead of as the small corner thumbnail.
-                    int iconPx = cfg.getInt("chat-discord.embeds.item.icon-pixels", 256);
-                    BufferedImage icon = renderer.renderItemIcon(hand, iconPx);
-                    byte[] iconPng = toPng(icon);
-                    String fileName = null;
-                    if (iconPng != null) {
-                        fileName = "item-" + safeName(sender.getName()) + ".png";
-                    }
-                    MessageEmbed embed = DiscordEmbedFactory.itemEmbed(sender, hand, cfg, fileName);
+                    // Render two attachments: a small icon (thumbnail) and a
+                    // larger MC-style hover tooltip (setImage). This makes
+                    // the embed read like a real Minecraft item hover —
+                    // small icon in the corner + the familiar dark / purple
+                    // tooltip card showing name, enchants, durability.
+                    int iconPx = cfg.getInt("chat-discord.embeds.item.icon-pixels", 96);
+                    BufferedImage icon    = renderer.renderItemIcon(hand, iconPx);
+                    BufferedImage tooltip = tooltipRenderer.render(hand);
+                    byte[] iconPng    = toPng(icon);
+                    byte[] tooltipPng = toPng(tooltip);
+
+                    String safe = safeName(sender.getName());
+                    String iconName    = iconPng    != null ? "item-icon-"    + safe + ".png" : null;
+                    String tooltipName = tooltipPng != null ? "item-tooltip-" + safe + ".png" : null;
+
+                    MessageEmbed embed = DiscordEmbedFactory.itemEmbed(
+                            sender, hand, cfg, iconName, tooltipName);
                     if (embed != null) {
+                        java.util.List<PendingPreview.Attachment> atts = new java.util.ArrayList<>(2);
+                        if (iconName != null)    atts.add(new PendingPreview.Attachment(iconPng, iconName));
+                        if (tooltipName != null) atts.add(new PendingPreview.Attachment(tooltipPng, tooltipName));
                         int id = PendingPreviewRegistry.register(
-                                fileName != null
-                                    ? PendingPreview.itemWithIcon(sender.getName(),
-                                            headUrl(sender), embed, iconPng, fileName)
-                                    : PendingPreview.item(sender.getName(),
-                                            headUrl(sender), embed));
+                                atts.isEmpty()
+                                    ? PendingPreview.item(sender.getName(), headUrl(sender), embed)
+                                    : PendingPreview.item(sender.getName(), headUrl(sender), embed, atts));
                         markerSuffix.append(PendingPreviewRegistry.marker(id));
                     }
                 }

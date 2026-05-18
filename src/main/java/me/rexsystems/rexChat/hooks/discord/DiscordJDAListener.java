@@ -112,10 +112,10 @@ public final class DiscordJDAListener extends ListenerAdapter {
         List<MessageEmbed> embeds = new ArrayList<>();
         Map<String, byte[]> files = new LinkedHashMap<>();
         for (PendingPreview p : previews) {
-            if (embeds.size() >= 10) break;
-            if (p.getEmbed() != null) embeds.add(p.getEmbed());
-            if (p.hasAttachment() && files.size() < 10) {
-                files.put(p.getFileName(), p.getImageBytes());
+            if (embeds.size() < 10 && p.getEmbed() != null) embeds.add(p.getEmbed());
+            for (PendingPreview.Attachment att : p.getAttachments()) {
+                if (files.size() >= 10) break;
+                files.put(att.name, att.bytes);
             }
         }
 
