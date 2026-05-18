@@ -99,6 +99,11 @@ public final class InventoryImageRenderer {
         this.titleFont = base.deriveFont((float) (8 * SCALE));
     }
 
+    /** Expose the embedded block-icon renderer so callers can hook a debug log. */
+    public BlockIconRenderer getBlockIcons() {
+        return blockIcons;
+    }
+
     /**
      * Render the full player inventory using the vanilla
      * {@code gui/container/inventory.png} chrome.

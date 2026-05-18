@@ -16,6 +16,7 @@ import java.net.URL;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 
 /**
  * Downloads Minecraft item / block / GUI textures from a public CDN once and
@@ -61,12 +62,18 @@ public final class ItemTextureCache {
     private final File cacheDir;
     private final String baseUrl;
     private final ConcurrentMap<String, BufferedImage> memCache = new ConcurrentHashMap<>();
+    private Consumer<String> debug = msg -> {};
 
     public ItemTextureCache(File pluginDataFolder, String baseUrl) {
         this.cacheDir = new File(pluginDataFolder, "textures");
         if (!cacheDir.exists()) cacheDir.mkdirs();
         String resolved = baseUrl == null || baseUrl.isEmpty() ? DEFAULT_BASE_URL : baseUrl;
         this.baseUrl = resolveVersion(resolved);
+    }
+
+    /** Wire up a debug-log sink so this cache can report HTTP results. */
+    public void setDebug(Consumer<String> sink) {
+        this.debug = sink == null ? msg -> {} : sink;
     }
 
     /** Replace any {@code {version}} placeholder in the base URL with the running MC version. */
@@ -184,15 +191,21 @@ public final class ItemTextureCache {
             conn.setInstanceFollowRedirects(true);
             int code = conn.getResponseCode();
             if (code != 200) {
+                debug.accept("texture: HTTP " + code + " - " + url);
                 conn.disconnect();
                 return null;
             }
             try (InputStream in = conn.getInputStream()) {
                 BufferedImage img = ImageIO.read(in);
                 conn.disconnect();
+                if (img != null) {
+                    debug.accept("texture: OK " + img.getWidth() + "x" + img.getHeight()
+                            + " - " + url);
+                }
                 return img;
             }
         } catch (Throwable t) {
+            debug.accept("texture: ERR " + t.getClass().getSimpleName() + " " + url);
             return null;
         }
     }

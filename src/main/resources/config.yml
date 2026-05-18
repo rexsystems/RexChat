@@ -204,6 +204,12 @@ chat-previews:
 # uses DSRV's WebhookUtil internally).
 chat-discord:
   enabled: true
+  # Verbose debug logging for the Discord preview pipeline. When true the
+  # plugin logs every texture HTTP fetch (OK / 404), each block-icon
+  # resolver decision and each armour overlay attempt. Useful for
+  # troubleshooting "block X doesn't show" or "armour isn't visible"
+  # without having to dig through code. Leave OFF in production.
+  debug: false
   # Per-token toggles for image/embed delivery. Token rewriting still happens
   # even when these are off (so chat shows the label) — this only controls
   # whether the rich preview is attached.

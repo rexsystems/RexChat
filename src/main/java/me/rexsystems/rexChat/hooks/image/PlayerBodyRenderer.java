@@ -16,10 +16,13 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 
 /**
  * Builds a 2D front-facing image of the player's body, optionally
@@ -50,11 +53,17 @@ public final class PlayerBodyRenderer {
     private final ItemTextureCache itemTextures;
     private final File cacheDir;
     private final ConcurrentMap<UUID, BufferedImage> skinCache = new ConcurrentHashMap<>();
+    private Consumer<String> debug = msg -> {};
 
     public PlayerBodyRenderer(File pluginDataFolder, ItemTextureCache itemTextures) {
         this.itemTextures = itemTextures;
         this.cacheDir = new File(pluginDataFolder, "textures/skins");
         if (!cacheDir.exists()) cacheDir.mkdirs();
+    }
+
+    /** Wire up a debug-log sink so this renderer can report what it tried. */
+    public void setDebug(Consumer<String> sink) {
+        this.debug = sink == null ? msg -> {} : sink;
     }
 
     /**
@@ -65,7 +74,13 @@ public final class PlayerBodyRenderer {
     public BufferedImage render(Player player, int outputHeight) {
         if (player == null) return null;
         BufferedImage skin = loadSkin(player.getUniqueId());
-        if (skin == null) return null;
+        if (skin == null) {
+            debug.accept("body: skin download FAILED for " + player.getName()
+                    + " (" + player.getUniqueId() + "); preview will be skipped");
+            return null;
+        }
+        debug.accept("body: skin loaded for " + player.getName()
+                + " (" + skin.getWidth() + "x" + skin.getHeight() + ")");
 
         BufferedImage base = renderBaseBody(skin);
 
@@ -234,11 +249,28 @@ public final class PlayerBodyRenderer {
 
     private void overlayArmorPiece(BufferedImage body, ItemStack item, ArmorSlot slot) {
         if (item == null || item.getType() == Material.AIR) return;
-        String texturePath = armorTexturePath(item.getType(), slot.layer);
-        if (texturePath == null) return;
+        List<String> paths = armorTexturePaths(item.getType(), slot.layer);
+        if (paths.isEmpty()) {
+            debug.accept("armor: " + item.getType() + " has no resolver — skipped");
+            return;
+        }
 
-        BufferedImage armor = itemTextures.getRaw(texturePath);
-        if (armor == null) return;
+        BufferedImage armor = null;
+        String hitPath = null;
+        for (String p : paths) {
+            BufferedImage img = itemTextures.getRaw(p);
+            if (img != null) {
+                armor = img;
+                hitPath = p;
+                break;
+            }
+        }
+        if (armor == null) {
+            debug.accept("armor: " + item.getType() + " texture not found at any of " + paths);
+            return;
+        }
+        debug.accept("armor: " + item.getType() + " using " + hitPath
+                + " (" + armor.getWidth() + "x" + armor.getHeight() + ")");
 
         Graphics2D g = body.createGraphics();
         try {
@@ -246,9 +278,6 @@ public final class PlayerBodyRenderer {
                     RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g.setComposite(AlphaComposite.SrcOver);
 
-            // Helmet covers head; we also need to draw the additional
-            // region above the head for tall helmet textures (none in
-            // vanilla but harmless).
             BufferedImage sub = safeSub(armor, slot.sx, slot.sy, slot.sw, slot.sh);
             if (sub != null) {
                 g.drawImage(sub, slot.dx, slot.dy, slot.dw, slot.dh, null);
@@ -292,32 +321,52 @@ public final class PlayerBodyRenderer {
     }
 
     /**
-     * Map an armour {@link Material} to the relative texture path under
-     * {@code assets/minecraft/textures/}. Layer 2 is leggings; layer 1 is
-     * the rest (helmet / chestplate / boots).
+     * Map an armour {@link Material} to candidate texture paths under
+     * {@code assets/minecraft/textures/}. Returns the modern (1.21.2+)
+     * path first, then the legacy (≤1.21.1) path so the renderer works
+     * across MC versions without needing per-version config.
+     *
+     * <p>Note that the <em>file</em> names in the new {@code humanoid/} layout
+     * don't always match the Bukkit material name — e.g. {@code GOLDEN_HELMET}
+     * lives at {@code humanoid/gold.png} and {@code TURTLE_HELMET} at
+     * {@code humanoid/turtle_scute.png}. We canonicalise here.
      */
-    private static String armorTexturePath(Material mat, int requiredLayer) {
+    private static List<String> armorTexturePaths(Material mat, int requiredLayer) {
         String name = mat.name().toLowerCase(Locale.ROOT);
         int idx = name.lastIndexOf('_');
-        if (idx < 0) return null;
+        if (idx < 0) return java.util.Collections.emptyList();
         String matName = name.substring(0, idx);
         String slot = name.substring(idx + 1);
 
         int layer = "leggings".equals(slot) ? 2 : 1;
-        if (layer != requiredLayer) return null;
+        if (layer != requiredLayer) return java.util.Collections.emptyList();
 
-        // Sanity-check: only known armour materials.
+        // Canonical file basename in the new humanoid/ layout.
+        String newName;
         switch (matName) {
+            case "golden":     newName = "gold"; break;
+            case "turtle":     newName = "turtle_scute"; break;
             case "leather":
             case "chainmail":
             case "iron":
-            case "golden":
             case "diamond":
-            case "netherite":
-            case "turtle":
-                return "models/armor/" + matName + "_layer_" + layer;
-            default:
-                return null;
+            case "netherite":  newName = matName; break;
+            default:           return java.util.Collections.emptyList();
+        }
+
+        // turtle_scute only ships as humanoid/ (helmet only). Don't try leggings.
+        if ("turtle_scute".equals(newName) && layer == 2) {
+            return java.util.Collections.emptyList();
+        }
+
+        if (layer == 2) {
+            return Arrays.asList(
+                    "entity/equipment/humanoid_leggings/" + newName,   // 1.21.2+
+                    "models/armor/" + matName + "_layer_2");           // legacy
+        } else {
+            return Arrays.asList(
+                    "entity/equipment/humanoid/" + newName,            // 1.21.2+
+                    "models/armor/" + matName + "_layer_1");           // legacy
         }
     }
 

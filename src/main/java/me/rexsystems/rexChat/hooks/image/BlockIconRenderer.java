@@ -69,9 +69,15 @@ public final class BlockIconRenderer {
 
     private final ItemTextureCache textures;
     private final ConcurrentMap<Material, BufferedImage> cache = new ConcurrentHashMap<>();
+    private java.util.function.Consumer<String> debug = msg -> {};
 
     public BlockIconRenderer(ItemTextureCache textures) {
         this.textures = textures;
+    }
+
+    /** Wire up a debug-log sink so this renderer can report which strategy hit. */
+    public void setDebug(java.util.function.Consumer<String> sink) {
+        this.debug = sink == null ? msg -> {} : sink;
     }
 
     /**
@@ -86,6 +92,7 @@ public final class BlockIconRenderer {
 
         Faces faces = resolveFaces(mat);
         if (faces == null) {
+            debug.accept("block-iso: " + mat + " — no face textures resolved, falling back");
             cache.put(mat, NONE);
             return null;
         }
@@ -120,22 +127,35 @@ public final class BlockIconRenderer {
                 || name.endsWith("_stem") || name.endsWith("_hyphae")) {
             BufferedImage top  = textures.getRaw("block/" + name + "_top");
             BufferedImage side = textures.getRaw("block/" + name);
-            if (top != null && side != null) return new Faces(top, side, side);
+            if (top != null && side != null) {
+                debug.accept("block-iso: " + mat + " resolved as log (_top + sides)");
+                return new Faces(top, side, side);
+            }
         }
 
         // 2. Common pattern: <name>_top + <name>_side (grass_block, sand-stone, etc.)
         BufferedImage top  = textures.getRaw("block/" + name + "_top");
         BufferedImage side = textures.getRaw("block/" + name + "_side");
-        if (top != null && side != null) return new Faces(top, side, side);
+        if (top != null && side != null) {
+            debug.accept("block-iso: " + mat + " resolved as _top + _side");
+            return new Faces(top, side, side);
+        }
 
         // 3. Single texture for all faces (dirt, stone, oak_planks, cobblestone, …)
         BufferedImage all = textures.getRaw("block/" + name);
-        if (all != null) return new Faces(all, all, all);
+        if (all != null) {
+            debug.accept("block-iso: " + mat + " resolved as single texture (block/" + name + ")");
+            return new Faces(all, all, all);
+        }
 
         // 4. Last-ditch: a few hand-rolled aliases for blocks with weird names.
         BufferedImage[] aliased = aliasedFaces(name);
-        if (aliased != null) return new Faces(aliased[0], aliased[1], aliased[2]);
+        if (aliased != null) {
+            debug.accept("block-iso: " + mat + " resolved via aliased rule");
+            return new Faces(aliased[0], aliased[1], aliased[2]);
+        }
 
+        debug.accept("block-iso: " + mat + " has no resolver — no faces found");
         return null;
     }
 
@@ -174,9 +194,75 @@ public final class BlockIconRenderer {
                 if (t != null && f != null && s != null) return new BufferedImage[]{t, f, s};
                 return null;
             }
+            // Chests live as entity textures (entity/chest/<variant>.png) with
+            // the lid + body unfolded in a single 64×64 sheet. Build pseudo
+            // 16×16 face textures by stitching the relevant rows together.
+            case "chest":
+                return chestFaces("normal");
+            case "trapped_chest":
+                return chestFaces("trapped");
+            case "ender_chest":
+                return chestFaces("ender");
+            // Barrels render the actual top/side block textures, so the
+            // standard <name>_top + <name>_side path catches them above.
             default:
                 return null;
         }
+    }
+
+    /**
+     * Build top + side face textures for a chest variant from its entity
+     * texture (lid front + body front + lid top regions). The resulting
+     * textures are 16×16 with a 1-px transparent border so they compose
+     * naturally with the iso projection.
+     */
+    private BufferedImage[] chestFaces(String variant) {
+        BufferedImage chest = textures.getRaw("entity/chest/" + variant);
+        if (chest == null) return null;
+
+        // Lid top: x=14, y=0, w=14, h=14.
+        BufferedImage top = padded(safeSub(chest, 14, 0, 14, 14), 16, 16, 1, 1);
+
+        // Side face = lid front (5 px tall) + body front (10 px tall) stacked.
+        BufferedImage face = new BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = face.createGraphics();
+        try {
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                    java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            BufferedImage lidFront = safeSub(chest, 14, 14, 14, 5);
+            if (lidFront != null) g.drawImage(lidFront, 1, 1, null);
+            BufferedImage bodyFront = safeSub(chest, 14, 33, 14, 10);
+            if (bodyFront != null) g.drawImage(bodyFront, 1, 6, null);
+        } finally {
+            g.dispose();
+        }
+
+        if (top == null || face == null) return null;
+        return new BufferedImage[]{top, face, face};
+    }
+
+    private static BufferedImage safeSub(BufferedImage img, int x, int y, int w, int h) {
+        try {
+            if (img == null) return null;
+            if (x < 0 || y < 0 || x + w > img.getWidth() || y + h > img.getHeight()) return null;
+            return img.getSubimage(x, y, w, h);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static BufferedImage padded(BufferedImage src, int w, int h, int dx, int dy) {
+        if (src == null) return null;
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        try {
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                    java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g.drawImage(src, dx, dy, null);
+        } finally {
+            g.dispose();
+        }
+        return out;
     }
 
     // ---------- compositing ----------

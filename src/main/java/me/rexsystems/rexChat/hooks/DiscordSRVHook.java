@@ -71,6 +71,19 @@ public final class DiscordSRVHook {
 
         plugin.getLogUtils().info("RexChat texture base URL: " + resolved);
 
+        // Wire debug logging through every renderer when `chat-discord.debug`
+        // is enabled. Operators can flip this on temporarily to see exactly
+        // which textures hit / miss and which blocks fall back.
+        boolean debugEnabled = cfg.getBoolean("chat-discord.debug", false);
+        if (debugEnabled) {
+            java.util.function.Consumer<String> sink = msg ->
+                    plugin.getLogUtils().info("[chat-discord] " + msg);
+            textureCache.setDebug(sink);
+            renderer.getBlockIcons().setDebug(sink);
+            bodyRenderer.setDebug(sink);
+            plugin.getLogUtils().info("Discord preview debug logging enabled.");
+        }
+
         this.outboundListener = new OutboundChatListener(plugin, renderer);
         this.jdaListener = new DiscordJDAListener(plugin);
         this.readyHandler = new ReadyHandler();
