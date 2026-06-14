@@ -46,6 +46,11 @@ messages:
       label-template: "&7[&a{balance}&7]"
       hover: "&7Balance of &6{player}&7: &a{balance}"
       unavailable-label: "&7[&cBalance unavailable&7]"
+    coords:
+      label-template: "&7[&b{x}, {y}, {z}&7]"
+      hover: "&7Click to copy coordinates\n&7Staff: &f/rexchat tpcoords {id}"
+      copy-format: "{x} {y} {z}"
+      teleport-success: "%rc_prefix%&aTeleported to &6{player}&a's coordinates &7({x}, {y}, {z})"
 
 # Mention behaviour
 mention:
@@ -182,8 +187,19 @@ chat-previews:
     item: ["[item]", "[i]", "{item}", "{i}"]
     inventory: ["[inventory]", "[inv]", "{inventory}", "{inv}"]
     enderchest: ["[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}"]
+    coords: ["[coords]", "[here]", "{coords}", "{here}"]
     # Requires Vault + an Economy plugin (EssentialsX, CMI, ...) for [bal]/[money].
     balance: ["[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}"]
+  # Config-defined custom clickable tokens. Plugins can also register tokens via RexChatAPI.
+  custom-tokens:
+    discord:
+      enabled: false
+      tokens: ["[discord]", "{discord}"]
+      label: "&9[&bDiscord&9]"
+      hover: "&7Click to open our Discord"
+      click-type: open_url
+      click-value: "https://discord.gg/yourserver"
+      permission: ""
 
 # DiscordSRV integration (optional, soft-dependency).
 # Renders [item] / [inv] / [ec] as proper Minecraft-style images and attaches
@@ -195,7 +211,9 @@ chat-discord:
   debug: false
   previews:
     item: true
-    # When [item] is a shulker box, also attach a second embed showing its contents.
+    # When [item] is a container (shulker, barrel, bundle, decorated pot), attach a contents embed.
+    item-container-contents: true
+    # Legacy alias — still honoured if item-container-contents is absent.
     item-shulker-contents: true
     inventory: true
     enderchest: true
@@ -213,6 +231,8 @@ chat-discord:
       # embed corner). The bigger MC-style hover tooltip is sized automatically.
       icon-pixels: 96
       shulker:
+        color: "#9B59B6"
+      container:
         color: "#9B59B6"
     inventory:
       title: "{player}'s inventory"

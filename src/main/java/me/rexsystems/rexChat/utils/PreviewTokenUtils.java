@@ -142,6 +142,44 @@ public final class PreviewTokenUtils {
             }
         }
 
+        List<String> coordsTokens = getTokensWithFallback(cfg,
+                "chat-previews.tokens.coords",
+                null,
+                "[coords]", "[here]", "{coords}", "{here}");
+        if (containsAnyToken(message, coordsTokens) && sender.hasPermission("rexchat.preview.coords")) {
+            String coordsId = plugin.getCoordsSnapshotManager().store(sender);
+            var loc = sender.getLocation();
+            String labelTemplate = cfg.getString("messages.preview.coords.label-template", "&7[&b{x}, {y}, {z}&7]");
+            String coordsLabel = labelTemplate
+                    .replace("{world}", loc.getWorld().getName())
+                    .replace("{x}", String.valueOf(loc.getBlockX()))
+                    .replace("{y}", String.valueOf(loc.getBlockY()))
+                    .replace("{z}", String.valueOf(loc.getBlockZ()))
+                    .replace("{player}", sender.getName());
+            String hoverTemplate = cfg.getString("messages.preview.coords.hover",
+                    "&7Click to copy coordinates");
+            String coordsHoverMini = ColorUtils.stripColors(hoverTemplate
+                    .replace("{world}", loc.getWorld().getName())
+                    .replace("{x}", String.valueOf(loc.getBlockX()))
+                    .replace("{y}", String.valueOf(loc.getBlockY()))
+                    .replace("{z}", String.valueOf(loc.getBlockZ()))
+                    .replace("{player}", sender.getName())
+                    .replace("{id}", coordsId));
+            String copyTemplate = cfg.getString("messages.preview.coords.copy-format", "{x} {y} {z}");
+            String copyValue = copyTemplate
+                    .replace("{world}", loc.getWorld().getName())
+                    .replace("{x}", String.valueOf(loc.getBlockX()))
+                    .replace("{y}", String.valueOf(loc.getBlockY()))
+                    .replace("{z}", String.valueOf(loc.getBlockZ()));
+
+            if (legacy) {
+                message = replaceTokens(message, coordsTokens, content -> coordsLabel);
+            } else {
+                message = replaceTokens(message, coordsTokens,
+                        buildCoordsWrapper(coordsHoverMini, coordsLabel, copyValue));
+            }
+        }
+
         return message;
     }
 
@@ -261,6 +299,13 @@ public final class PreviewTokenUtils {
         String hoverEscaped = escapeForMiniMessage(hoverText);
         return content -> "<hover:show_text:'" + hoverEscaped + "'><click:run_command:'" + cmd + "'>" + label
                 + "</click></hover>";
+    }
+
+    private static TokenWrapper buildCoordsWrapper(String hoverText, String label, String copyValue) {
+        String hoverEscaped = escapeForMiniMessage(hoverText);
+        String copyEscaped = escapeForMiniMessage(copyValue);
+        return content -> "<hover:show_text:'" + hoverEscaped + "'><click:copy_to_clipboard:'" + copyEscaped + "'>"
+                + label + "</click></hover>";
     }
 
     private static TokenWrapper buildInvWrapper(String playerName, String hoverText, String label) {

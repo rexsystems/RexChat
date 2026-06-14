@@ -174,4 +174,29 @@ public class RexChatAPI {
     public void setProximityChatRadius(double radius) {
         plugin.getConfigManager().getConfig().set("chat-management.proximity.radius", Math.max(0, radius));
     }
+
+    /**
+     * Register a custom chat token from another plugin.
+     *
+     * @since 1.6.6
+     */
+    public void registerCustomToken(org.bukkit.plugin.Plugin owner, me.rexsystems.rexChat.api.CustomChatToken token) {
+        plugin.getCustomTokenRegistry().register(owner, token);
+    }
+
+    /**
+     * Remove a custom chat token previously registered through the API.
+     *
+     * @since 1.6.6
+     */
+    public void unregisterCustomToken(String id) {
+        plugin.getCustomTokenRegistry().unregister(id);
+    }
+
+    /**
+     * @since 1.6.6
+     */
+    public me.rexsystems.rexChat.service.CustomTokenRegistry getCustomTokenRegistry() {
+        return plugin.getCustomTokenRegistry();
+    }
 }

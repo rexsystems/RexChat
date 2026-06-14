@@ -44,6 +44,10 @@ public class RexChatCommand extends BaseCommand {
                 plugin.getChatColorManager().loadPresets();
             }
 
+            if (plugin.getCustomTokenRegistry() != null) {
+                plugin.getCustomTokenRegistry().reloadFromConfig();
+            }
+
             plugin.getCommandManager().loadCommands();
 
             String reloadMsg = plugin.getConfigManager().getConfig()
@@ -233,6 +237,52 @@ public class RexChatCommand extends BaseCommand {
             }
 
             viewer.openInventory(gui);
+            return true;
+        }
+
+        // /rexchat tpcoords <id> - teleport to shared coordinates snapshot
+        if (args[0].equalsIgnoreCase("tpcoords")) {
+            if (!(sender instanceof org.bukkit.entity.Player viewer)) {
+                sendMessage(sender, "%rc_prefix%&eThis command can only be used in-game.");
+                return true;
+            }
+            if (!viewer.hasPermission("rexchat.coords.teleport")) {
+                sendMessage(sender, "%rc_prefix%&cYou don't have permission to teleport to shared coordinates.");
+                return true;
+            }
+            if (args.length < 2) {
+                sendMessage(sender, "&cUsage: /rexchat tpcoords <id>");
+                return true;
+            }
+
+            me.rexsystems.rexChat.service.CoordsSnapshotManager.CoordsSnapshot snapshot = plugin
+                    .getCoordsSnapshotManager().get(args[1]);
+            if (snapshot == null) {
+                sendMessage(sender, "%rc_prefix%&cCoordinates preview has expired or does not exist.");
+                return true;
+            }
+
+            org.bukkit.Location target = snapshot.toLocation(viewer.getServer());
+            if (target == null) {
+                sendMessage(sender, "%rc_prefix%&cThat world is not loaded.");
+                return true;
+            }
+
+            viewer.teleportAsync(target).thenAccept(success -> {
+                if (success) {
+                    String msg = plugin.getConfigManager().getConfig().getString(
+                            "messages.preview.coords.teleport-success",
+                            "%rc_prefix%&aTeleported to &6{player}&a's coordinates &7({x}, {y}, {z})");
+                    msg = msg.replace("{player}", snapshot.playerName())
+                            .replace("{world}", snapshot.world())
+                            .replace("{x}", String.valueOf(snapshot.x()))
+                            .replace("{y}", String.valueOf(snapshot.y()))
+                            .replace("{z}", String.valueOf(snapshot.z()));
+                    sendMessage(viewer, msg);
+                } else {
+                    sendMessage(viewer, "%rc_prefix%&cTeleport failed.");
+                }
+            });
             return true;
         }
 

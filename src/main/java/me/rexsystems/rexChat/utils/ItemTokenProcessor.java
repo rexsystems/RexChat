@@ -1,13 +1,17 @@
 package me.rexsystems.rexChat.utils;
 
 import me.rexsystems.rexChat.RexChat;
+import me.rexsystems.rexChat.api.CustomChatToken;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
+import java.util.Locale;
 
 public class ItemTokenProcessor {
     private final RexChat plugin;
@@ -27,57 +31,34 @@ public class ItemTokenProcessor {
 
         String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
                 .plainText().serialize(component);
-        String plainLower = plain.toLowerCase();
+        String plainLower = plain.toLowerCase(Locale.ROOT);
 
-        List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
-        List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
-        List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
-        List<String> balTokens = cfg.getStringList("chat-previews.tokens.balance");
+        List<String> itemTokens = PreviewTokenLists.itemTokens(cfg);
+        List<String> invTokens = PreviewTokenLists.inventoryTokens(cfg);
+        List<String> ecTokens = PreviewTokenLists.enderChestTokens(cfg);
+        List<String> balTokens = PreviewTokenLists.balanceTokens(cfg);
+        List<String> coordsTokens = PreviewTokenLists.coordsTokens(cfg);
 
-        if (itemTokens.isEmpty()) {
-            itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
-        }
-        if (invTokens.isEmpty()) {
-            invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
-        }
-        if (ecTokens.isEmpty()) {
-            ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
-        }
-        if (balTokens.isEmpty()) {
-            balTokens = java.util.Arrays.asList("[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}");
-        }
+        boolean hasItem = PreviewTokenLists.containsAnyToken(plainLower, itemTokens);
+        boolean hasInv = PreviewTokenLists.containsAnyToken(plainLower, invTokens);
+        boolean hasEc = PreviewTokenLists.containsAnyToken(plainLower, ecTokens);
+        boolean hasBal = PreviewTokenLists.containsAnyToken(plainLower, balTokens);
+        boolean hasCoords = PreviewTokenLists.containsAnyToken(plainLower, coordsTokens);
 
-        boolean hasItem = false;
-        boolean hasInv = false;
-        boolean hasEc = false;
-        boolean hasBal = false;
-
-        for (String token : itemTokens) {
-            if (plainLower.contains(token.toLowerCase())) {
-                hasItem = true;
-                break;
+        boolean hasCustom = false;
+        for (CustomChatToken token : plugin.getCustomTokenRegistry().getAll()) {
+            for (String alias : token.getAliases()) {
+                if (plainLower.contains(alias)) {
+                    hasCustom = true;
+                    break;
+                }
             }
-        }
-        for (String token : invTokens) {
-            if (plainLower.contains(token.toLowerCase())) {
-                hasInv = true;
-                break;
-            }
-        }
-        for (String token : ecTokens) {
-            if (plainLower.contains(token.toLowerCase())) {
-                hasEc = true;
-                break;
-            }
-        }
-        for (String token : balTokens) {
-            if (plainLower.contains(token.toLowerCase())) {
-                hasBal = true;
+            if (hasCustom) {
                 break;
             }
         }
 
-        if (!hasItem && !hasInv && !hasEc && !hasBal) {
+        if (!hasItem && !hasInv && !hasEc && !hasBal && !hasCoords && !hasCustom) {
             return component;
         }
 
@@ -114,12 +95,11 @@ public class ItemTokenProcessor {
             String labelTemplate = cfg.getString("messages.preview.inventory.label-template",
                     "&7[&fInventory&7]");
             Component invDisplay = ColorUtils.parseComponent(labelTemplate)
-                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                    .hoverEvent(HoverEvent.showText(
                             ColorUtils.parseComponent(cfg.getString("messages.preview.inventory.hover",
                                     "&7Click to view {player}'s inventory")
                                     .replace("{player}", player.getName()))))
-                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
-                            "/rexchat viewinv " + invId));
+                    .clickEvent(ClickEvent.runCommand("/rexchat viewinv " + invId));
 
             for (String token : invTokens) {
                 component = component.replaceText(TextReplacementConfig.builder()
@@ -135,12 +115,11 @@ public class ItemTokenProcessor {
             String labelTemplate = cfg.getString("messages.preview.enderchest.label-template",
                     "&7[&5Ender Chest&7]");
             Component ecDisplay = ColorUtils.parseComponent(labelTemplate)
-                    .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                    .hoverEvent(HoverEvent.showText(
                             ColorUtils.parseComponent(cfg.getString("messages.preview.enderchest.hover",
                                     "&7Click to view {player}'s ender chest")
                                     .replace("{player}", player.getName()))))
-                    .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
-                            "/rexchat viewec " + ecId));
+                    .clickEvent(ClickEvent.runCommand("/rexchat viewec " + ecId));
 
             for (String token : ecTokens) {
                 component = component.replaceText(TextReplacementConfig.builder()
@@ -154,17 +133,18 @@ public class ItemTokenProcessor {
             Component balDisplay;
 
             if (!VaultEconomyUtils.isAvailable()) {
-                // Vault/Economy not present: show an unavailable label
                 String unavailableLabel = cfg.getString("messages.preview.balance.unavailable-label",
                         "&7[&cBalance unavailable&7]");
                 balDisplay = ColorUtils.parseComponent(unavailableLabel);
             } else {
                 Double balance = VaultEconomyUtils.getBalance(player);
-                if (balance == null) balance = 0.0;
+                if (balance == null)
+                    balance = 0.0;
 
                 String formatted = VaultEconomyUtils.format(balance);
                 String currency = VaultEconomyUtils.currencyNamePlural();
-                if (currency == null) currency = "";
+                if (currency == null)
+                    currency = "";
 
                 String labelTemplate = cfg.getString("messages.preview.balance.label-template",
                         "&7[&a{balance}&7]");
@@ -183,14 +163,77 @@ public class ItemTokenProcessor {
                         .replace("{player}", player.getName());
 
                 balDisplay = ColorUtils.parseComponent(label)
-                        .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                                ColorUtils.parseComponent(hover)));
+                        .hoverEvent(HoverEvent.showText(ColorUtils.parseComponent(hover)));
             }
 
             for (String token : balTokens) {
                 component = component.replaceText(TextReplacementConfig.builder()
                         .matchLiteral(token)
                         .replacement(balDisplay)
+                        .build());
+            }
+        }
+
+        if (hasCoords && player.hasPermission("rexchat.preview.coords")) {
+            String coordsId = plugin.getCoordsSnapshotManager().store(player);
+            var loc = player.getLocation();
+            String world = loc.getWorld().getName();
+            int x = loc.getBlockX();
+            int y = loc.getBlockY();
+            int z = loc.getBlockZ();
+
+            String labelTemplate = cfg.getString("messages.preview.coords.label-template",
+                    "&7[&b{x}, {y}, {z}&7]");
+            String label = labelTemplate
+                    .replace("{world}", world)
+                    .replace("{x}", String.valueOf(x))
+                    .replace("{y}", String.valueOf(y))
+                    .replace("{z}", String.valueOf(z))
+                    .replace("{player}", player.getName());
+
+            String hoverTemplate = cfg.getString("messages.preview.coords.hover",
+                    "&7Click to copy coordinates\n&7Staff: &f/rexchat tpcoords " + coordsId);
+            String hover = hoverTemplate
+                    .replace("{world}", world)
+                    .replace("{x}", String.valueOf(x))
+                    .replace("{y}", String.valueOf(y))
+                    .replace("{z}", String.valueOf(z))
+                    .replace("{player}", player.getName())
+                    .replace("{id}", coordsId);
+
+            String copyTemplate = cfg.getString("messages.preview.coords.copy-format", "{x} {y} {z}");
+            String copyValue = copyTemplate
+                    .replace("{world}", world)
+                    .replace("{x}", String.valueOf(x))
+                    .replace("{y}", String.valueOf(y))
+                    .replace("{z}", String.valueOf(z));
+
+            Component coordsDisplay = ColorUtils.parseComponent(label)
+                    .hoverEvent(HoverEvent.showText(ColorUtils.parseComponent(hover)))
+                    .clickEvent(ClickEvent.copyToClipboard(copyValue));
+
+            for (String token : coordsTokens) {
+                component = component.replaceText(TextReplacementConfig.builder()
+                        .matchLiteral(token)
+                        .replacement(coordsDisplay)
+                        .build());
+            }
+        }
+
+        for (CustomChatToken customToken : plugin.getCustomTokenRegistry().getAll()) {
+            String usePermission = customToken.getUsePermission();
+            if (usePermission != null && !usePermission.isBlank() && !player.hasPermission(usePermission)) {
+                continue;
+            }
+
+            for (String alias : customToken.getAliases()) {
+                if (!plainLower.contains(alias)) {
+                    continue;
+                }
+                Component replacement = customToken.buildReplacement(player, alias);
+                component = component.replaceText(TextReplacementConfig.builder()
+                        .matchLiteral(alias)
+                        .replacement(replacement)
                         .build());
             }
         }

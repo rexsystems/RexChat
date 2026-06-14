@@ -29,7 +29,7 @@ public class ChatColorManager {
      */
     public void loadPresets() {
         presets.clear();
-        cachedTokenPattern = null; // invalidate cached pattern
+        clearTokenPatternCache();
 
         ConfigurationSection section = plugin.getConfigManager().getConfig()
                 .getConfigurationSection("chatcolor.colors");
@@ -126,50 +126,25 @@ public class ChatColorManager {
         // Get or build cached token pattern
         java.util.regex.Pattern pattern = cachedTokenPattern;
         if (pattern == null) {
-            // Get preview tokens from config
-            org.bukkit.configuration.file.FileConfiguration cfg = plugin.getConfigManager().getConfig();
-            java.util.List<String> itemTokens = cfg.getStringList("chat-previews.tokens.item");
-            java.util.List<String> invTokens = cfg.getStringList("chat-previews.tokens.inventory");
-            java.util.List<String> ecTokens = cfg.getStringList("chat-previews.tokens.enderchest");
-            java.util.List<String> balTokens = cfg.getStringList("chat-previews.tokens.balance");
-            
-            // Default tokens if not configured
-            if (itemTokens.isEmpty()) {
-                itemTokens = java.util.Arrays.asList("[item]", "[i]", "{item}", "{i}");
+            java.util.List<String> allTokens = me.rexsystems.rexChat.utils.PreviewTokenLists.allProtectedTokens(plugin);
+            if (allTokens.isEmpty()) {
+                return preset.format() + message;
             }
-            if (invTokens.isEmpty()) {
-                invTokens = java.util.Arrays.asList("[inventory]", "[inv]", "{inventory}", "{inv}");
-            }
-            if (ecTokens.isEmpty()) {
-                ecTokens = java.util.Arrays.asList("[enderchest]", "[ec]", "[echest]", "{enderchest}", "{ec}", "{echest}");
-            }
-            if (balTokens.isEmpty()) {
-                balTokens = java.util.Arrays.asList("[balance]", "[bal]", "[money]", "{balance}", "{bal}", "{money}");
-            }
-            
-            // Combine all tokens
-            java.util.List<String> allTokens = new java.util.ArrayList<>();
-            allTokens.addAll(itemTokens);
-            allTokens.addAll(invTokens);
-            allTokens.addAll(ecTokens);
-            allTokens.addAll(balTokens);
-            
-            // Build regex pattern to match any token (case-insensitive)
+
             StringBuilder patternBuilder = new StringBuilder("(");
             for (int i = 0; i < allTokens.size(); i++) {
-                if (i > 0) patternBuilder.append("|");
-                // Escape special regex characters in token
+                if (i > 0)
+                    patternBuilder.append("|");
                 String token = allTokens.get(i).toLowerCase();
                 token = token.replace("[", "\\[").replace("]", "\\]")
-                            .replace("{", "\\{").replace("}", "\\}");
+                        .replace("{", "\\{").replace("}", "\\}");
                 patternBuilder.append(token);
             }
             patternBuilder.append(")");
-            
+
             pattern = java.util.regex.Pattern.compile(
-                patternBuilder.toString(), 
-                java.util.regex.Pattern.CASE_INSENSITIVE
-            );
+                    patternBuilder.toString(),
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
             cachedTokenPattern = pattern;
         }
         
@@ -202,6 +177,13 @@ public class ChatColorManager {
         }
         
         return result.toString();
+    }
+
+    /**
+     * Invalidate cached preview-token regex (call after token config/API changes).
+     */
+    public void clearTokenPatternCache() {
+        cachedTokenPattern = null;
     }
 
     /**

@@ -28,6 +28,10 @@ public class ConfigManager {
             // Merge any missing keys from bundled defaults while preserving user values
             new ConfigAutoUpdater(plugin).ensureDefaults();
 
+            if (plugin.getCustomTokenRegistry() != null) {
+                plugin.getCustomTokenRegistry().reloadFromConfig();
+            }
+
             // Migrate old features.chat-previews to chat-previews
             if (config.contains("features.chat-previews") && !config.contains("chat-previews")) {
                 if (config.isBoolean("features.chat-previews.enabled")) {
@@ -83,9 +87,17 @@ public class ConfigManager {
             ensureDefault(config, "messages.preview.inventory.open",
                     "%rc_prefix%&7Opening inventory preview for &6{player}");
             ensureDefault(config, "messages.preview.item.open", "%rc_prefix%&7Opening item preview for &6{player}");
+            ensureDefault(config, "messages.preview.coords.label-template", "&7[&b{x}, {y}, {z}&7]");
+            ensureDefault(config, "messages.preview.coords.hover",
+                    "&7Click to copy coordinates\n&7Staff: &f/rexchat tpcoords {id}");
+            ensureDefault(config, "messages.preview.coords.copy-format", "{x} {y} {z}");
+            ensureDefault(config, "messages.preview.coords.teleport-success",
+                    "%rc_prefix%&aTeleported to &6{player}&a's coordinates &7({x}, {y}, {z})");
 
-            // DiscordSRV shulker contents preview ([item] only)
+            // DiscordSRV container contents preview ([item] only)
+            ensureDefault(config, "chat-discord.previews.item-container-contents", true);
             ensureDefault(config, "chat-discord.previews.item-shulker-contents", true);
+            ensureDefault(config, "chat-discord.embeds.item.container.color", "#9B59B6");
             ensureDefault(config, "chat-discord.embeds.item.shulker.color", "#9B59B6");
             plugin.saveConfig();
 

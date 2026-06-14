@@ -7,6 +7,8 @@ import me.rexsystems.rexChat.data.DataManager;
 import me.rexsystems.rexChat.utils.LogUtils;
 
 import me.rexsystems.rexChat.service.PreviewGuiService;
+import me.rexsystems.rexChat.service.CustomTokenRegistry;
+import me.rexsystems.rexChat.service.CoordsSnapshotManager;
 import me.rexsystems.rexChat.listener.PreviewGuiListener;
 import me.rexsystems.rexChat.utils.UpdateChecker;
 import me.rexsystems.rexChat.papi.RexChatPlaceholders;
@@ -30,6 +32,8 @@ public final class RexChat extends JavaPlugin {
     private me.rexsystems.rexChat.service.PreviewAccessManager previewAccessManager;
     private me.rexsystems.rexChat.service.ItemSnapshotManager itemSnapshotManager;
     private me.rexsystems.rexChat.service.ChatColorManager chatColorManager;
+    private CoordsSnapshotManager coordsSnapshotManager;
+    private CustomTokenRegistry customTokenRegistry;
     private me.rexsystems.rexChat.hooks.DiscordSRVHook discordSRVHook;
 
     @Override
@@ -51,6 +55,8 @@ public final class RexChat extends JavaPlugin {
             this.previewAccessManager = new me.rexsystems.rexChat.service.PreviewAccessManager(30);
             // Initialize item snapshot manager for unique item IDs
             this.itemSnapshotManager = new me.rexsystems.rexChat.service.ItemSnapshotManager();
+            this.coordsSnapshotManager = new CoordsSnapshotManager();
+            this.customTokenRegistry = new CustomTokenRegistry(this);
             this.updateChecker = new UpdateChecker(this);
 
             logUtils.info("Initializing RexChat plugin...");
@@ -65,6 +71,7 @@ public final class RexChat extends JavaPlugin {
 
             // Initialize ChatColorManager AFTER config is loaded
             this.chatColorManager = new me.rexsystems.rexChat.service.ChatColorManager(this);
+            this.customTokenRegistry.reloadFromConfig();
 
             // NOTE: Config color conversion DISABLED - users manage their own config format
             // Legacy codes (&6) are supported, no need to convert to MiniMessage
@@ -104,6 +111,7 @@ public final class RexChat extends JavaPlugin {
             getServer().getAsyncScheduler().runAtFixedRate(this, scheduledTask -> {
                 if (previewAccessManager != null) previewAccessManager.cleanupExpiredTokens();
                 if (itemSnapshotManager != null) itemSnapshotManager.cleanupExpired();
+                if (coordsSnapshotManager != null) coordsSnapshotManager.cleanupExpired();
                 if (inventorySnapshotService != null) inventorySnapshotService.cleanupExpired();
             }, 300, 300, TimeUnit.SECONDS);
 
@@ -177,6 +185,14 @@ public final class RexChat extends JavaPlugin {
 
     public me.rexsystems.rexChat.service.ChatColorManager getChatColorManager() {
         return chatColorManager;
+    }
+
+    public CoordsSnapshotManager getCoordsSnapshotManager() {
+        return coordsSnapshotManager;
+    }
+
+    public CustomTokenRegistry getCustomTokenRegistry() {
+        return customTokenRegistry;
     }
 
     /**

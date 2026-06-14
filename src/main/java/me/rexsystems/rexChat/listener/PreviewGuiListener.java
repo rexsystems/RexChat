@@ -2,7 +2,7 @@ package me.rexsystems.rexChat.listener;
 
 import me.rexsystems.rexChat.RexChat;
 import me.rexsystems.rexChat.service.PreviewGuiService;
-import me.rexsystems.rexChat.utils.ShulkerBoxUtils;
+import me.rexsystems.rexChat.utils.ContainerPreviewUtils;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -43,11 +43,11 @@ public class PreviewGuiListener implements Listener {
         }
 
         ItemStack clicked = event.getCurrentItem();
-        if (!ShulkerBoxUtils.isShulkerBox(clicked)) {
+        if (!ContainerPreviewUtils.isContainer(clicked)) {
             return;
         }
 
-        plugin.getPreviewGuiService().openShulkerPreview(player, clicked);
+        plugin.getPreviewGuiService().openContainerPreview(player, clicked);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

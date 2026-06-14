@@ -51,6 +51,12 @@ permissions:
   rexchat.preview.enderchest:
     description: Open ender chest preview via /rexchat viewec
     default: true
+  rexchat.preview.coords:
+    description: Share clickable coordinates via [coords] / [here]
+    default: true
+  rexchat.coords.teleport:
+    description: Teleport to coordinates shared in chat via /rexchat tpcoords
+    default: op
 
   rexchat.chat.minimessage:
     description: Allows using MiniMessage tags (<click>, <hover>, <gradient>, etc.) in chat

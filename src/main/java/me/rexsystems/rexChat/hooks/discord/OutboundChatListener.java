@@ -10,7 +10,8 @@ import me.rexsystems.rexChat.RexChat;
 import me.rexsystems.rexChat.hooks.DiscordEmbedFactory;
 import me.rexsystems.rexChat.hooks.image.InventoryImageRenderer;
 import me.rexsystems.rexChat.hooks.image.ItemTooltipRenderer;
-import me.rexsystems.rexChat.utils.ShulkerBoxUtils;
+import me.rexsystems.rexChat.utils.ContainerPreviewUtils;
+import me.rexsystems.rexChat.utils.PreviewTokenLists;
 import me.rexsystems.rexChat.utils.VaultEconomyUtils;
 
 import org.bukkit.Material;
@@ -132,23 +133,28 @@ public final class OutboundChatListener {
                                     : PendingPreview.item(sender.getName(), headUrl(sender), embed, atts));
                         markerSuffix.append(PendingPreviewRegistry.marker(id));
 
-                        if (cfg.getBoolean("chat-discord.previews.item-shulker-contents", true)
-                                && ShulkerBoxUtils.isShulkerBox(hand)) {
-                            String shulkerTitle = DiscordEmbedFactory.itemDisplayName(hand);
-                            BufferedImage shulkerImg = renderer.renderEnderChest(
-                                    ShulkerBoxUtils.getContents(hand), shulkerTitle);
-                            byte[] shulkerPng = toPng(shulkerImg);
-                            if (shulkerPng != null) {
-                                String shulkerFileName = "shulker-" + safeName(sender.getName()) + ".png";
-                                MessageEmbed shulkerEmbed = imageEmbed(
-                                        sender,
-                                        cfg.getString("chat-discord.embeds.item.shulker.color", "#9B59B6"),
-                                        shulkerTitle,
-                                        shulkerFileName);
-                                int shulkerId = PendingPreviewRegistry.register(
-                                        PendingPreview.enderChest(sender.getName(), headUrl(sender),
-                                                shulkerEmbed, shulkerPng, shulkerFileName));
-                                markerSuffix.append(PendingPreviewRegistry.marker(shulkerId));
+                        boolean containerPreview = cfg.getBoolean("chat-discord.previews.item-container-contents",
+                                cfg.getBoolean("chat-discord.previews.item-shulker-contents", true));
+                        if (containerPreview && ContainerPreviewUtils.isContainer(hand)) {
+                            ContainerPreviewUtils.ContainerView container = ContainerPreviewUtils.read(hand);
+                            if (container != null) {
+                                String containerTitle = DiscordEmbedFactory.itemDisplayName(hand);
+                                BufferedImage containerImg = renderer.renderEnderChest(container.contents(),
+                                        containerTitle);
+                                byte[] containerPng = toPng(containerImg);
+                                if (containerPng != null) {
+                                    String containerFileName = "container-" + safeName(sender.getName()) + ".png";
+                                    MessageEmbed containerEmbed = imageEmbed(
+                                            sender,
+                                            cfg.getString("chat-discord.embeds.item.container.color",
+                                                    cfg.getString("chat-discord.embeds.item.shulker.color", "#9B59B6")),
+                                            containerTitle,
+                                            containerFileName);
+                                    int containerId = PendingPreviewRegistry.register(
+                                            PendingPreview.enderChest(sender.getName(), headUrl(sender),
+                                                    containerEmbed, containerPng, containerFileName));
+                                    markerSuffix.append(PendingPreviewRegistry.marker(containerId));
+                                }
                             }
                         }
                     }
@@ -219,6 +225,47 @@ public final class OutboundChatListener {
                         : cfg.getString("chat-discord.labels.balance-unavailable",
                                 "(balance unavailable)");
                 rewritten = replaceTokens(rewritten, balTokens, balanceText);
+            }
+
+            // ----- [coords] / [here] -----
+            List<String> coordsTokens = PreviewTokenLists.coordsTokens(cfg);
+            if (containsAnyToken(rewritten, coordsTokens)) {
+                var loc = sender.getLocation();
+                String coordsLabel = cfg.getString("messages.preview.coords.label-template", "&7[&b{x}, {y}, {z}&7]")
+                        .replace("{world}", loc.getWorld().getName())
+                        .replace("{x}", String.valueOf(loc.getBlockX()))
+                        .replace("{y}", String.valueOf(loc.getBlockY()))
+                        .replace("{z}", String.valueOf(loc.getBlockZ()))
+                        .replace("{player}", sender.getName());
+                coordsLabel = me.rexsystems.rexChat.utils.ColorUtils.stripColors(
+                        me.rexsystems.rexChat.utils.ColorUtils.translateLegacyColors(coordsLabel));
+                rewritten = replaceTokens(rewritten, coordsTokens, coordsLabel);
+            }
+
+            // ----- custom config tokens (text label only) -----
+            org.bukkit.configuration.ConfigurationSection customSection = cfg
+                    .getConfigurationSection("chat-previews.custom-tokens");
+            if (customSection != null) {
+                for (String key : customSection.getKeys(false)) {
+                    org.bukkit.configuration.ConfigurationSection tokenSection = customSection
+                            .getConfigurationSection(key);
+                    if (tokenSection == null || !tokenSection.getBoolean("enabled", true)) {
+                        continue;
+                    }
+                    List<String> customTokens = tokenSection.getStringList("tokens");
+                    if (customTokens == null || customTokens.isEmpty()) {
+                        continue;
+                    }
+                    String customLabel = tokenSection.getString("label", "[" + key + "]");
+                    customLabel = me.rexsystems.rexChat.utils.ColorUtils.stripColors(
+                            me.rexsystems.rexChat.utils.ColorUtils.translateLegacyColors(
+                                    customLabel.replace("{player}", sender.getName())
+                                            .replace("{world}", sender.getWorld().getName())
+                                            .replace("{x}", String.valueOf(sender.getLocation().getBlockX()))
+                                            .replace("{y}", String.valueOf(sender.getLocation().getBlockY()))
+                                            .replace("{z}", String.valueOf(sender.getLocation().getBlockZ()))));
+                    rewritten = replaceTokens(rewritten, customTokens, customLabel);
+                }
             }
 
             if (markerSuffix.length() > 0) {

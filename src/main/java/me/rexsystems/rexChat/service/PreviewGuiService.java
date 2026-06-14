@@ -2,10 +2,10 @@ package me.rexsystems.rexChat.service;
 
 import me.rexsystems.rexChat.RexChat;
 import me.rexsystems.rexChat.listener.PreviewGuiListener;
+import me.rexsystems.rexChat.utils.ContainerPreviewUtils;
 import me.rexsystems.rexChat.utils.ColorUtils;
 import me.rexsystems.rexChat.utils.MessageUtils;
 import me.rexsystems.rexChat.utils.SchedulerUtils;
-import me.rexsystems.rexChat.utils.ShulkerBoxUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -138,23 +138,48 @@ public class PreviewGuiService {
         SchedulerUtils.runForPlayer(plugin, viewer, () -> viewer.openInventory(inv));
     }
 
-    public void openShulkerPreview(Player viewer, ItemStack shulker) {
-        if (viewer == null || !ShulkerBoxUtils.isShulkerBox(shulker)) {
+    public void openContainerPreview(Player viewer, ItemStack container) {
+        if (viewer == null) {
             return;
         }
 
-        String title = ShulkerBoxUtils.getDisplayTitle(shulker);
-        Inventory inv = Bukkit.createInventory(new PreviewGuiListener.PreviewGuiHolder(), 27, title);
+        ContainerPreviewUtils.ContainerView view = ContainerPreviewUtils.read(container);
+        if (view == null) {
+            return;
+        }
 
-        ItemStack[] contents = ShulkerBoxUtils.getContents(shulker);
-        for (int i = 0; i < Math.min(contents.length, 27); i++) {
-            ItemStack item = contents[i];
-            if (item != null && item.getType() != Material.AIR && item.getAmount() > 0) {
-                inv.setItem(i, item.clone());
+        Inventory inv = Bukkit.createInventory(new PreviewGuiListener.PreviewGuiHolder(), view.guiSize(), view.title());
+        ItemStack[] contents = view.contents();
+
+        if (view.centerSingleItem()) {
+            ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+            ItemMeta fm = filler.getItemMeta();
+            if (fm != null) {
+                fm.setDisplayName(" ");
+                filler.setItemMeta(fm);
+            }
+            for (int i = 0; i < view.guiSize(); i++) {
+                inv.setItem(i, filler);
+            }
+            if (contents.length > 0 && !isEmpty(contents[0])) {
+                inv.setItem(4, contents[0].clone());
+            }
+        } else {
+            for (int i = 0; i < Math.min(contents.length, view.guiSize()); i++) {
+                ItemStack item = contents[i];
+                if (!isEmpty(item)) {
+                    inv.setItem(i, item.clone());
+                }
             }
         }
 
         SchedulerUtils.runForPlayer(plugin, viewer, () -> viewer.openInventory(inv));
+    }
+
+    /** @deprecated use {@link #openContainerPreview(Player, ItemStack)} */
+    @Deprecated
+    public void openShulkerPreview(Player viewer, ItemStack shulker) {
+        openContainerPreview(viewer, shulker);
     }
 
     private ItemStack cloneSafe(ItemStack in) {
