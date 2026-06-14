@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.6] - 2026-06-14
+
 ### Added
 - **In-game shulker box contents preview.** When viewing a player's inventory or held item via `[inventory]` / `[item]`, clicking a shulker box inside the read-only preview GUI opens a second GUI showing what's inside. The window title is the shulker's custom name, or its default material name if unnamed. Nested shulkers (a shulker inside another shulker) can be clicked through as well.
 - **DiscordSRV — shulker contents for `[item]`.** When the held item is a shulker box, Discord now receives a second embed alongside the usual item card: a rendered PNG of the shulker GUI with its contents, titled with the shulker's name. Toggle with `chat-discord.previews.item-shulker-contents` (default: `true`); embed accent color via `chat-discord.embeds.item.shulker.color`.
@@ -15,8 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `chat-discord.images.texture-base-url` config option to point the renderer at a different texture mirror.
 - DiscordSRV soft-dependency integration: when DiscordSRV is installed, chat messages containing `[item]`, `[inv]`, `[ec]` or `[bal]` tokens are forwarded to the linked Discord channel as the regular chat line **plus** rich embeds for the previews. Items get a thumbnail (configurable URL template, defaults to InventiveTalent's Minecraft asset mirror), durability, enchantments and lore. Balances are inlined directly in the relayed line via Vault Economy.
 - `chat-discord` config section with toggles per preview type, channel selection (DSRV game-channel name, empty = main channel), embed colors and titles.
-
-<!-- Add entries here as you work. They will be moved into the next versioned section on release. -->
 
 ## [1.6.5] - 2026-05-10
 
@@ -38,5 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 For changes prior to 1.6.5, see the [GitHub Releases page](https://github.com/rexsystems/RexChat/releases).
 
-[Unreleased]: https://github.com/rexsystems/RexChat/compare/v1.6.5...HEAD
+[Unreleased]: https://github.com/rexsystems/RexChat/compare/v1.6.6...HEAD
+[1.6.6]: https://github.com/rexsystems/RexChat/releases/tag/v1.6.6
 [1.6.5]: https://github.com/rexsystems/RexChat/releases/tag/v1.6.5
