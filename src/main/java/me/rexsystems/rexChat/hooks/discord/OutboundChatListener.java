@@ -10,6 +10,7 @@ import me.rexsystems.rexChat.RexChat;
 import me.rexsystems.rexChat.hooks.DiscordEmbedFactory;
 import me.rexsystems.rexChat.hooks.image.InventoryImageRenderer;
 import me.rexsystems.rexChat.hooks.image.ItemTooltipRenderer;
+import me.rexsystems.rexChat.utils.ShulkerBoxUtils;
 import me.rexsystems.rexChat.utils.VaultEconomyUtils;
 
 import org.bukkit.Material;
@@ -130,6 +131,26 @@ public final class OutboundChatListener {
                                     ? PendingPreview.item(sender.getName(), headUrl(sender), embed)
                                     : PendingPreview.item(sender.getName(), headUrl(sender), embed, atts));
                         markerSuffix.append(PendingPreviewRegistry.marker(id));
+
+                        if (cfg.getBoolean("chat-discord.previews.item-shulker-contents", true)
+                                && ShulkerBoxUtils.isShulkerBox(hand)) {
+                            String shulkerTitle = DiscordEmbedFactory.itemDisplayName(hand);
+                            BufferedImage shulkerImg = renderer.renderEnderChest(
+                                    ShulkerBoxUtils.getContents(hand), shulkerTitle);
+                            byte[] shulkerPng = toPng(shulkerImg);
+                            if (shulkerPng != null) {
+                                String shulkerFileName = "shulker-" + safeName(sender.getName()) + ".png";
+                                MessageEmbed shulkerEmbed = imageEmbed(
+                                        sender,
+                                        cfg.getString("chat-discord.embeds.item.shulker.color", "#9B59B6"),
+                                        shulkerTitle,
+                                        shulkerFileName);
+                                int shulkerId = PendingPreviewRegistry.register(
+                                        PendingPreview.enderChest(sender.getName(), headUrl(sender),
+                                                shulkerEmbed, shulkerPng, shulkerFileName));
+                                markerSuffix.append(PendingPreviewRegistry.marker(shulkerId));
+                            }
+                        }
                     }
                 }
             }

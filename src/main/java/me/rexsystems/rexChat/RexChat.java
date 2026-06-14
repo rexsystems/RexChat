@@ -72,7 +72,7 @@ public final class RexChat extends JavaPlugin {
             commandManager.loadCommands();
 
             // Register read-only preview GUI listener
-            getServer().getPluginManager().registerEvents(new PreviewGuiListener(), this);
+            getServer().getPluginManager().registerEvents(new PreviewGuiListener(this), this);
             // Register preview access listener to grant tokens when commands are clicked
             getServer().getPluginManager()
                     .registerEvents(new me.rexsystems.rexChat.listener.PreviewAccessListener(this), this);

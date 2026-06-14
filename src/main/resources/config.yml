@@ -195,6 +195,8 @@ chat-discord:
   debug: false
   previews:
     item: true
+    # When [item] is a shulker box, also attach a second embed showing its contents.
+    item-shulker-contents: true
     inventory: true
     enderchest: true
   # Static labels shown in chat in place of the token. The [item] label is
@@ -210,6 +212,8 @@ chat-discord:
       # Square pixel size of the rendered item icon (small thumbnail in the
       # embed corner). The bigger MC-style hover tooltip is sized automatically.
       icon-pixels: 96
+      shulker:
+        color: "#9B59B6"
     inventory:
       title: "{player}'s inventory"
       color: "#57F287"

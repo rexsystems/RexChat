@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **In-game shulker box contents preview.** When viewing a player's inventory or held item via `[inventory]` / `[item]`, clicking a shulker box inside the read-only preview GUI opens a second GUI showing what's inside. The window title is the shulker's custom name, or its default material name if unnamed. Nested shulkers (a shulker inside another shulker) can be clicked through as well.
+- **DiscordSRV — shulker contents for `[item]`.** When the held item is a shulker box, Discord now receives a second embed alongside the usual item card: a rendered PNG of the shulker GUI with its contents, titled with the shulker's name. Toggle with `chat-discord.previews.item-shulker-contents` (default: `true`); embed accent color via `chat-discord.embeds.item.shulker.color`.
 - **DiscordSRV — rendered inventory & ender chest images.** When a chat message contains `[inv]` or `[ec]`, RexChat now renders an actual PNG that looks like the in-game GUI (light grey panel, recessed slots, real item textures, Monocraft font for stack counts) and posts it as a Discord attachment. Item textures are downloaded once from the configurable CDN (defaults to InventiveTalent's mirror) and cached under `<plugin folder>/textures/`.
 - Bundled the Monocraft font (v4.2.1) under `resources/fonts/Monocraft.ttf` so counts render with the Minecraft typeface even on servers that don't have a Minecraft-style font installed.
 - `chat-discord.images.texture-base-url` config option to point the renderer at a different texture mirror.

@@ -83,6 +83,10 @@ public class ConfigManager {
             ensureDefault(config, "messages.preview.inventory.open",
                     "%rc_prefix%&7Opening inventory preview for &6{player}");
             ensureDefault(config, "messages.preview.item.open", "%rc_prefix%&7Opening item preview for &6{player}");
+
+            // DiscordSRV shulker contents preview ([item] only)
+            ensureDefault(config, "chat-discord.previews.item-shulker-contents", true);
+            ensureDefault(config, "chat-discord.embeds.item.shulker.color", "#9B59B6");
             plugin.saveConfig();
 
             boolean isValid = validator.validateConfig();
