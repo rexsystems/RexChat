@@ -60,7 +60,7 @@ public final class DiscordSRVHook {
         FileConfiguration cfg = plugin.getConfigManager().getConfig();
 
         this.textureCache = new ItemTextureCache(plugin.getDataFolder(),
-                ItemTextureCache.DEFAULT_BASE_URL);
+                cfg.getString("chat-discord.images.texture-base-url", ItemTextureCache.DEFAULT_BASE_URL));
         // GuiTextureCache + BlockIconRenderer use whatever base URL the item cache
         // resolved (so {version} placeholders are honoured exactly once).
         String resolved = textureCache.getBaseUrl();

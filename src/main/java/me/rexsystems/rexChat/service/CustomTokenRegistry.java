@@ -43,7 +43,9 @@ public class CustomTokenRegistry {
                 registerInternal(plugin, new ConfigCustomChatToken(key, tokenSection));
             }
         }
-        plugin.getChatColorManager().clearTokenPatternCache();
+        if (plugin.getChatColorManager() != null) {
+            plugin.getChatColorManager().clearTokenPatternCache();
+        }
     }
 
     public void register(Plugin owner, CustomChatToken token) {
@@ -51,7 +53,9 @@ public class CustomTokenRegistry {
             throw new IllegalArgumentException("CustomChatToken id cannot be blank");
         }
         registerInternal(owner, token);
-        plugin.getChatColorManager().clearTokenPatternCache();
+        if (plugin.getChatColorManager() != null) {
+            plugin.getChatColorManager().clearTokenPatternCache();
+        }
     }
 
     public void unregister(String id) {
@@ -62,7 +66,9 @@ public class CustomTokenRegistry {
                 byAlias.remove(alias.toLowerCase(Locale.ROOT));
             }
         }
-        plugin.getChatColorManager().clearTokenPatternCache();
+        if (plugin.getChatColorManager() != null) {
+            plugin.getChatColorManager().clearTokenPatternCache();
+        }
     }
 
     public CustomChatToken findByAlias(String alias) {

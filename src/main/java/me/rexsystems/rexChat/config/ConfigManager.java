@@ -1,6 +1,7 @@
 package me.rexsystems.rexChat.config;
 
 import me.rexsystems.rexChat.RexChat;
+import me.rexsystems.rexChat.hooks.image.ItemTextureCache;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public class ConfigManager {
@@ -27,10 +28,6 @@ public class ConfigManager {
 
             // Merge any missing keys from bundled defaults while preserving user values
             new ConfigAutoUpdater(plugin).ensureDefaults();
-
-            if (plugin.getCustomTokenRegistry() != null) {
-                plugin.getCustomTokenRegistry().reloadFromConfig();
-            }
 
             // Migrate old features.chat-previews to chat-previews
             if (config.contains("features.chat-previews") && !config.contains("chat-previews")) {
@@ -99,6 +96,8 @@ public class ConfigManager {
             ensureDefault(config, "chat-discord.previews.item-shulker-contents", true);
             ensureDefault(config, "chat-discord.embeds.item.container.color", "#9B59B6");
             ensureDefault(config, "chat-discord.embeds.item.shulker.color", "#9B59B6");
+            ensureDefault(config, "chat-discord.images.texture-base-url", ItemTextureCache.DEFAULT_BASE_URL);
+
             plugin.saveConfig();
 
             boolean isValid = validator.validateConfig();

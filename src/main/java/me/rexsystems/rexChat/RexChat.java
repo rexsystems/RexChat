@@ -34,7 +34,6 @@ public final class RexChat extends JavaPlugin {
     private me.rexsystems.rexChat.service.ChatColorManager chatColorManager;
     private CoordsSnapshotManager coordsSnapshotManager;
     private CustomTokenRegistry customTokenRegistry;
-    private me.rexsystems.rexChat.hooks.DiscordSRVHook discordSRVHook;
 
     @Override
     public void onEnable() {
@@ -51,9 +50,7 @@ public final class RexChat extends JavaPlugin {
 
             this.previewGuiService = new PreviewGuiService(this);
             this.inventorySnapshotService = new me.rexsystems.rexChat.service.InventorySnapshotService(this);
-            // Initialize preview access manager with 30-second token expiry
             this.previewAccessManager = new me.rexsystems.rexChat.service.PreviewAccessManager(30);
-            // Initialize item snapshot manager for unique item IDs
             this.itemSnapshotManager = new me.rexsystems.rexChat.service.ItemSnapshotManager();
             this.coordsSnapshotManager = new CoordsSnapshotManager();
             this.customTokenRegistry = new CustomTokenRegistry(this);
@@ -69,32 +66,22 @@ public final class RexChat extends JavaPlugin {
                 logUtils.warning("Plugin will continue to run with potential configuration issues.");
             }
 
-            // Initialize ChatColorManager AFTER config is loaded
             this.chatColorManager = new me.rexsystems.rexChat.service.ChatColorManager(this);
             this.customTokenRegistry.reloadFromConfig();
 
-            // NOTE: Config color conversion DISABLED - users manage their own config format
-            // Legacy codes (&6) are supported, no need to convert to MiniMessage
-
             commandManager.loadCommands();
 
-            // Register read-only preview GUI listener
             getServer().getPluginManager().registerEvents(new PreviewGuiListener(this), this);
-            // Register preview access listener to grant tokens when commands are clicked
             getServer().getPluginManager()
                     .registerEvents(new me.rexsystems.rexChat.listener.PreviewAccessListener(this), this);
-            // Register static command listener as fallback
             getServer().getPluginManager()
                     .registerEvents(new me.rexsystems.rexChat.listener.StaticCommandListener(this), this);
-            
-            // Register PlaceholderAPI expansion if available
+
             if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
                 new RexChatPlaceholders(this).register();
                 logUtils.info("PlaceholderAPI expansion registered!");
             }
 
-            // Register DiscordSRV hook if available. Loaded lazily so missing plugin
-            // never causes a class-loading error.
             if (getServer().getPluginManager().getPlugin("DiscordSRV") != null) {
                 try {
                     this.discordSRVHook = new me.rexsystems.rexChat.hooks.DiscordSRVHook(this);
@@ -104,10 +91,9 @@ public final class RexChat extends JavaPlugin {
                     this.discordSRVHook = null;
                 }
             }
-            
+
             updateChecker.checkForUpdatesAsync();
 
-            // Schedule periodic cleanup of expired snapshots/tokens (every 5 minutes)
             getServer().getAsyncScheduler().runAtFixedRate(this, scheduledTask -> {
                 if (previewAccessManager != null) previewAccessManager.cleanupExpiredTokens();
                 if (itemSnapshotManager != null) itemSnapshotManager.cleanupExpired();
@@ -195,10 +181,9 @@ public final class RexChat extends JavaPlugin {
         return customTokenRegistry;
     }
 
-    /**
-     * @return the DiscordSRV hook, or {@code null} if DiscordSRV is not installed.
-     */
     public me.rexsystems.rexChat.hooks.DiscordSRVHook getDiscordSRVHook() {
         return discordSRVHook;
     }
+
+    private me.rexsystems.rexChat.hooks.DiscordSRVHook discordSRVHook;
 }

@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -22,6 +23,12 @@ public class MessageFormatter {
             .compile("(?is)<hover:show_text:'([^']*)'><click:run_command:'([^']*)'>(.*?)</click></hover>");
     private static final java.util.regex.Pattern STRIP_TOKEN_PATTERN = java.util.regex.Pattern
             .compile("(?is)<hover:show_text:'[^']*'><click:run_command:'[^']*'>(.*?)</click></hover>");
+
+    private static final LegacyComponentSerializer LEGACY_SERIALIZER = LegacyComponentSerializer.legacySection()
+            .toBuilder()
+            .hexColors()
+            .useUnusualXRepeatedCharacterHexFormat()
+            .build();
 
     public MessageFormatter(RexChat plugin) {
         this.plugin = plugin;
@@ -115,22 +122,7 @@ public class MessageFormatter {
                         for (BaseComponent c : base) {
                             c.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
                                     net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, hoverComp));
-                            c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                    net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                    "/msg " + sender.getName() + " "));
                         }
-                    } else {
-                        for (BaseComponent c : base) {
-                            c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                    net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                    "/msg " + sender.getName() + " "));
-                        }
-                    }
-                } else {
-                    for (BaseComponent c : base) {
-                        c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                "/msg " + sender.getName() + " "));
                     }
                 }
             } else {
@@ -303,18 +295,6 @@ public class MessageFormatter {
         // This is done AFTER Component creation to avoid MiniMessage parsing issues
         ItemTokenProcessor tokenProcessor = new ItemTokenProcessor(plugin);
         component = tokenProcessor.processTokens(component, sender);
-
-        // Check again if we have [item] tokens (now replaced with components that have
-        // hover events)
-        boolean hasItemTokens = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                .plainText().serialize(component).toLowerCase().contains("[item]") ||
-                net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                        .plainText().serialize(component).toLowerCase().contains("[inventory]");
-
-        // Apply a global click only when there are no token wrappers
-        if (!hasPreviewWrappers && !hasItemTokens) {
-            component = component.clickEvent(ClickEvent.suggestCommand("/msg " + sender.getName() + " "));
-        }
         return component;
     }
 
@@ -349,7 +329,6 @@ public class MessageFormatter {
             }
         }
 
-        decorated = decorated.clickEvent(ClickEvent.suggestCommand("/msg " + sender.getName() + " "));
         return decorated;
     }
 
@@ -614,8 +593,10 @@ public class MessageFormatter {
     /**
      * Send message to recipients based on proximity settings.
      * Supports both legacy (BaseComponent[]) and modern (Component) formats.
+     *
+     * @return true when the message was delivered globally on this server (eligible for network relay)
      */
-    private void sendToRecipients(Player sender, Object message, FileConfiguration cfg) {
+    private boolean sendToRecipients(Player sender, Object message, FileConfiguration cfg) {
         boolean proximityEnabled = cfg.getBoolean("chat-management.proximity.enabled", false);
         double radius = cfg.getDouble("chat-management.proximity.radius", 100.0);
         String bypassPerm = cfg.getString("chat-management.proximity.bypass-permission", "rexchat.proximity.bypass");
@@ -628,7 +609,10 @@ public class MessageFormatter {
         boolean senderHasGlobalToggle = plugin.getDataManager().getData()
                 .getBoolean("proximity-bypass." + sender.getUniqueId().toString(), false);
 
-        if (!proximityEnabled || radius <= 0 || senderHasGlobalToggle || sender.hasPermission(bypassPerm)) {
+        boolean globalDelivery = !proximityEnabled || radius <= 0 || senderHasGlobalToggle
+                || sender.hasPermission(bypassPerm);
+
+        if (globalDelivery) {
             // Global chat - send to everyone
             recipients.addAll(Bukkit.getOnlinePlayers());
         } else {
@@ -678,6 +662,7 @@ public class MessageFormatter {
                 SchedulerUtils.runForPlayer(plugin, p, () -> p.sendMessage(component));
             }
         }
+        return globalDelivery;
     }
 
     /**

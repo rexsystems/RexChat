@@ -181,7 +181,14 @@ public class ChatManager implements Listener {
     }
 
     public void clearChat(String executor) {
+        clearChatInternal(executor);
+    }
+
+    private void clearChatInternal(String executor) {
         int lines = plugin.getConfigManager().getConfig().getInt("chat-management.clear.lines", 100);
+        if (lines <= 0) {
+            lines = 100;
+        }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             for (int i = 0; i < lines; i++) {
@@ -193,13 +200,17 @@ public class ChatManager implements Listener {
                 .getString("chat-management.clear.clear-message",
                         "%rc_prefix%&#00ff00The chat has been cleared by {player}");
         broadcastMessage(clearMessage.replace("{player}", executor));
-        
-        // Fire event
+
         Bukkit.getPluginManager().callEvent(new me.rexsystems.rexChat.api.events.ChatClearEvent(executor));
     }
 
     public void toggleMute(String executor) {
         chatMuted = !chatMuted;
+        applyMuteState(chatMuted, executor);
+    }
+
+    private void applyMuteState(boolean muted, String executor) {
+        chatMuted = muted;
 
         plugin.getDataManager().getData().set("chat.muted", chatMuted);
         plugin.getDataManager().saveData();
@@ -211,8 +222,7 @@ public class ChatManager implements Listener {
                         "%rc_prefix%&#00ff00The chat has been unmuted by {player}");
 
         broadcastMessage(message.replace("{player}", executor));
-        
-        // Fire event
+
         Bukkit.getPluginManager().callEvent(new me.rexsystems.rexChat.api.events.ChatMuteEvent(chatMuted, executor));
     }
 
