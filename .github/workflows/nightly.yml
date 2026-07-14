@@ -3,9 +3,6 @@ name: Nightly Build
 on:
   push:
     branches: [ main ]
-  schedule:
-    # Daily 02:00 UTC (only runs if main moved since last run)
-    - cron: '0 2 * * *'
   workflow_dispatch:
 
 # Allow back-to-back nightlies; each one gets its own release anyway
