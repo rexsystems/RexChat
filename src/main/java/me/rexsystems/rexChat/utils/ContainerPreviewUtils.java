@@ -41,11 +41,7 @@ public final class ContainerPreviewUtils {
             boolean centerSingleItem) {
     }
 
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection()
-            .toBuilder()
-            .hexColors()
-            .useUnusualXRepeatedCharacterHexFormat()
-            .build();
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private ContainerPreviewUtils() {
     }
