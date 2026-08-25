@@ -19,40 +19,13 @@ public class ConfigManager {
             plugin.reloadConfig();
             this.config = plugin.getConfig();
 
-            // Debug: log available groups after reload
-            if (this.config.isConfigurationSection("chat-format.groups")) {
-                java.util.Set<String> groups = this.config.getConfigurationSection("chat-format.groups").getKeys(false);
-                plugin.getLogUtils().info("Loaded chat-format groups: " + String.join(", ", groups));
-            }
+            new ConfigMigrator(plugin).migrate(this.config);
 
             // Merge any missing keys from bundled defaults while preserving user values
             new ConfigAutoUpdater(plugin).ensureDefaults();
 
             if (plugin.getCustomTokenRegistry() != null) {
                 plugin.getCustomTokenRegistry().reloadFromConfig();
-            }
-
-            // Migrate old features.chat-previews to chat-previews
-            if (config.contains("features.chat-previews") && !config.contains("chat-previews")) {
-                if (config.isBoolean("features.chat-previews.enabled")) {
-                    config.set("chat-previews.enabled", config.getBoolean("features.chat-previews.enabled"));
-                }
-                if (config.isList("features.chat-previews.tokens.item")) {
-                    config.set("chat-previews.tokens.item", config.getList("features.chat-previews.tokens.item"));
-                }
-                if (config.isList("features.chat-previews.tokens.inventory")) {
-                    config.set("chat-previews.tokens.inventory",
-                            config.getList("features.chat-previews.tokens.inventory"));
-                }
-                // Remove old features.chat-previews section
-                config.set("features.chat-previews", null);
-                // Remove features section if empty
-                if (config.isConfigurationSection("features")
-                        && config.getConfigurationSection("features").getKeys(false).isEmpty()) {
-                    config.set("features", null);
-                }
-                plugin.saveConfig();
-                plugin.getLogUtils().info("Migrated features.chat-previews to chat-previews");
             }
 
             // Ensure mention messages exist for chat notifications
@@ -62,6 +35,8 @@ public class ConfigManager {
             ensureDefault(config, "mention.prevent-self", true);
             // Default to disabling chat reporting on 1.19+ unless explicitly turned off
             ensureDefault(config, "chat-reporting.disable", true);
+            ensureDefault(config, "chat-format.player.click.type", "suggest_command");
+            ensureDefault(config, "chat-format.player.click.value", "/msg {player} ");
 
             // Chat previews: tokens and messages
             ensureDefault(config, "chat-previews.enabled", true);

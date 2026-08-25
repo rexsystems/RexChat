@@ -115,22 +115,16 @@ public class MessageFormatter {
                         for (BaseComponent c : base) {
                             c.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
                                     net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, hoverComp));
-                            c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                    net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                    "/msg " + sender.getName() + " "));
+                            applyNameClick(c, sender, cfg);
                         }
                     } else {
                         for (BaseComponent c : base) {
-                            c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                    net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                    "/msg " + sender.getName() + " "));
+                            applyNameClick(c, sender, cfg);
                         }
                     }
                 } else {
                     for (BaseComponent c : base) {
-                        c.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                                net.md_5.bungee.api.chat.ClickEvent.Action.SUGGEST_COMMAND,
-                                "/msg " + sender.getName() + " "));
+                        applyNameClick(c, sender, cfg);
                     }
                 }
             } else {
@@ -313,7 +307,10 @@ public class MessageFormatter {
 
         // Apply a global click only when there are no token wrappers
         if (!hasPreviewWrappers && !hasItemTokens) {
-            component = component.clickEvent(ClickEvent.suggestCommand("/msg " + sender.getName() + " "));
+            ClickEvent nameClick = buildNameClickEvent(sender, cfg);
+            if (nameClick != null) {
+                component = component.clickEvent(nameClick);
+            }
         }
         return component;
     }
@@ -349,7 +346,10 @@ public class MessageFormatter {
             }
         }
 
-        decorated = decorated.clickEvent(ClickEvent.suggestCommand("/msg " + sender.getName() + " "));
+        ClickEvent nameClick = buildNameClickEvent(sender, cfg);
+        if (nameClick != null) {
+            decorated = decorated.clickEvent(nameClick);
+        }
         return decorated;
     }
 
@@ -414,6 +414,25 @@ public class MessageFormatter {
                 return cfg.getStringList(path);
         }
         return cfg.getStringList("chat-format.player.hover.lines");
+    }
+
+    private ChatClickUtils.ClickSettings getNameClickSettings(Player sender, FileConfiguration cfg) {
+        String group = resolveGroupForPlayer(sender, cfg);
+        if (group != null) {
+            String base = "chat-format.groups." + group + ".click";
+            if (cfg.isSet(base + ".type")) {
+                return ChatClickUtils.readNameClick(cfg, base);
+            }
+        }
+        return ChatClickUtils.readNameClick(cfg, "chat-format.player.click");
+    }
+
+    private ClickEvent buildNameClickEvent(Player sender, FileConfiguration cfg) {
+        return ChatClickUtils.toAdventureClick(getNameClickSettings(sender, cfg), sender, cfg);
+    }
+
+    private void applyNameClick(BaseComponent component, Player sender, FileConfiguration cfg) {
+        ChatClickUtils.applyBungeeClick(component, getNameClickSettings(sender, cfg), sender, cfg);
     }
 
     private String resolveGroupForPlayer(Player sender, FileConfiguration cfg) {

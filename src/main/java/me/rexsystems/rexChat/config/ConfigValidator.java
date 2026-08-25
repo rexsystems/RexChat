@@ -20,6 +20,10 @@ public class ConfigValidator {
         errors.clear();
         FileConfiguration config = plugin.getConfigManager().getConfig();
 
+        if (config.contains("config-version") && !config.isInt("config-version")) {
+            errors.add("config-version must be an integer");
+        }
+
         checkSection(config, "messages");
         checkSection(config, "chat-management");
         checkSection(config, "commands");

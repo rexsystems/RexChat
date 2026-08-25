@@ -1,5 +1,6 @@
 # RexChat Configuration
 
+config-version: 2
 
 # Update checker
 update-checker:
@@ -142,6 +143,9 @@ chat-format:
         - "&7World: &f{world}"
         - "&7Location: &f{x}&7, &f{y}&7, &f{z}"
         - "&7Ping: &f{ping}ms"
+    click:
+      type: suggest_command
+      value: "/msg {player} "
 
   # Group overrides. First matching group wins. Resolved via the player's
   # LuckPerms / Vault primary group, or via an explicit `permission:` below.
