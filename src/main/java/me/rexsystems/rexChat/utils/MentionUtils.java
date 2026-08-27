@@ -52,18 +52,21 @@ public class MentionUtils {
         if (!isEnabled(cfg)) return targets;
         if (rawMessage == null || rawMessage.isEmpty()) return targets;
 
+        // Names inside MiniMessage / chat tags like <head:Player> must not count as mentions
+        String searchable = maskAngleBracketTags(rawMessage);
+
         boolean byName = cfg.getBoolean("mention.by-name", true);
         for (Player p : Bukkit.getOnlinePlayers()) {
             String pname = p.getName();
             boolean matched = false;
             try {
                 java.util.regex.Pattern atPat = getAtPattern(pname);
-                matched = atPat.matcher(rawMessage).find();
+                matched = atPat.matcher(searchable).find();
             } catch (Throwable ignored) { }
             if (!matched && byName) {
                 try {
                     java.util.regex.Pattern pat = getNamePattern(pname);
-                    matched = pat.matcher(rawMessage).find();
+                    matched = pat.matcher(searchable).find();
                 } catch (Throwable ignored) { }
             }
             if (matched) {
@@ -71,6 +74,33 @@ public class MentionUtils {
             }
         }
         return targets;
+    }
+
+    /**
+     * Replaces content of {@code <...>} regions with spaces (same length) so
+     * player-name patterns do not match inside MiniMessage / chat tags.
+     */
+    static String maskAngleBracketTags(String input) {
+        if (input == null || input.isEmpty()) {
+            return input == null ? "" : input;
+        }
+        StringBuilder out = new StringBuilder(input.length());
+        boolean inTag = false;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (!inTag && c == '<') {
+                inTag = true;
+                out.append(' ');
+            } else if (inTag && c == '>') {
+                inTag = false;
+                out.append(' ');
+            } else if (inTag) {
+                out.append(' ');
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     public static void playMentionEffects(RexChat plugin, Player sender, Set<Player> targets) {
@@ -199,24 +229,28 @@ public class MentionUtils {
         for (Player p : sorted) {
             String name = p.getName();
             try {
-                // Highlight @Name
+                // Match against tag-masked text so <head:Name> is ignored
+                String searchable = maskAngleBracketTags(result);
+
                 java.util.regex.Pattern atPat = getAtPattern(name);
-                boolean hadAtMention = atPat.matcher(result).find();
+                java.util.regex.Matcher atMatcher = atPat.matcher(searchable);
+                boolean hadAtMention = atMatcher.find();
                 if (hadAtMention) {
                     String placeholder = "\u0000MENTION" + (placeholderIndex++) + "\u0000";
                     String highlighted = color + "@" + name + restoreColor;
                     placeholders.add(new String[]{placeholder, highlighted});
-                    result = atPat.matcher(result).replaceAll(java.util.regex.Matcher.quoteReplacement(placeholder));
+                    result = replaceMatchesOutsideTags(result, atPat, placeholder);
                 }
                 // Highlight plain Name if enabled and not part of a larger word
                 // Skip if @Name was already highlighted to avoid double-processing
                 if (byName && !hadAtMention) {
                     java.util.regex.Pattern pat = getNamePattern(name);
-                    if (pat.matcher(result).find()) {
+                    if (pat.matcher(searchable).find()) {
                         String placeholder = "\u0000MENTION" + (placeholderIndex++) + "\u0000";
-                        String highlighted = color + "@" + name + restoreColor;
+                        // Keep the typed name (no forced @) when matching by bare name
+                        String highlighted = color + name + restoreColor;
                         placeholders.add(new String[]{placeholder, highlighted});
-                        result = pat.matcher(result).replaceAll(java.util.regex.Matcher.quoteReplacement(placeholder));
+                        result = replaceMatchesOutsideTags(result, pat, placeholder);
                     }
                 }
             } catch (Throwable ignored) { }
@@ -228,6 +262,28 @@ public class MentionUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Replaces pattern matches in {@code input} only where the match is not
+     * inside an angle-bracket tag. Masking is length-preserving so indices align.
+     */
+    private static String replaceMatchesOutsideTags(String input, java.util.regex.Pattern pattern, String replacement) {
+        String masked = maskAngleBracketTags(input);
+        java.util.regex.Matcher matcher = pattern.matcher(masked);
+        if (!matcher.find()) {
+            return input;
+        }
+        StringBuilder out = new StringBuilder();
+        int last = 0;
+        matcher.reset();
+        while (matcher.find()) {
+            out.append(input, last, matcher.start());
+            out.append(replacement);
+            last = matcher.end();
+        }
+        out.append(input, last, input.length());
+        return out.toString();
     }
 
 }
